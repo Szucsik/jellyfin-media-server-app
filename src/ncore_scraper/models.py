@@ -9,12 +9,12 @@ class Quality(Enum):
     HD = "1080"
     UHD = "2160"
 
-
 class Torrent(BaseModel):
     """a"""
     title: str = ""
     imdb_link: str = ""
     quality: Quality = Quality.UNASSIGNED
     detail_link: str = ""
+    download_link: str = ""
     id: int = -1
     key: str = ""

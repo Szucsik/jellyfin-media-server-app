@@ -20,4 +20,5 @@ if username is None or password is None:
 scraper = Scraper(username=username, password=password)
 
 scraper.login()
-scraper.get_all_hd_movies()
+test = scraper.get_all_hd_movies()
+print('a')

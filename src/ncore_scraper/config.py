@@ -20,3 +20,7 @@ class ScraperConfig:
     def get_browse_hd_pages_url(self, page: int):
         """t"""
         return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=hd_hun&miszerint=seeders&hogyan=DESC"
+
+    def get_torrent_download_url(self, torrent_id: int, key: str) -> str:
+        """a"""
+        return f"{self.browse_url}?action=download&id={str(torrent_id)}&key={key}"
