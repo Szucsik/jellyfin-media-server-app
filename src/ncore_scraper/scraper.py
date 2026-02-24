@@ -7,7 +7,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 
 from ncore_scraper.config import ScraperConfig
-from ncore_scraper.models import Torrent, Quality
+from models import Torrent, Quality
 from ncore_scraper.selectors import ScraperSelectors
 
 
@@ -59,7 +59,7 @@ class Scraper:
             if not self.driver.find_elements(By.XPATH, self.selectors.Xpaths.BrowsePage.TEXT_NOT_FOUND_LIST):
                 break
 
-            torrents.extend(self._get_torrent_data_from_page(page))
+            torrents.extend(self._get_torrent_data_from_page())
 
         torrents = self._process_torrent_data(torrents)
         torrents = self._distillation_torrent_data(torrents)
@@ -107,7 +107,7 @@ class Scraper:
     # Torrent data extraction
     # -------------------------------------------------------------------------
 
-    def _get_torrent_data_from_page(self, page: int) -> list[Torrent]:
+    def _get_torrent_data_from_page(self) -> list[Torrent]:
         """
         Extract raw torrent data (IMDB links, titles, detail links) from the current page.
         `page` is accepted for future use (e.g., logging) but not used directly.
@@ -149,10 +149,10 @@ class Scraper:
             if not match:
                 raise ValueError(f"No valid 'id' parameter found in URL: {torrent.detail_link}")
 
-            torrent.id = int(match.group(1))
+            torrent.torrent_id = int(match.group(1))
             torrent.key = key
             torrent.quality = self._get_torrent_quality(torrent.title)
-            torrent.download_link = self.config.get_torrent_download_url(torrent_id=torrent.id, key=key)
+            torrent.download_link = self.config.get_torrent_download_url(torrent_id=torrent.torrent_id, key=key)
 
         return torrents
 
