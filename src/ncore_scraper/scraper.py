@@ -49,7 +49,6 @@ class Scraper:
         Iterates through paginated results, stopping either when no more
         results are found or when `max_pages` is reached.
         """
-        self._open_browse_hd_movie_page()
 
         torrents: list[Torrent] = []
         for page in range(1, max_pages + 1):
@@ -63,6 +62,28 @@ class Scraper:
 
         torrents = self._process_torrent_data(torrents)
         torrents = self._distillation_torrent_data(torrents)
+        return torrents
+
+    def get_all_hd_series(self, max_pages: int = 5) -> list[Torrent]:
+        """
+        Collect HD serie torrents across multiple browse pages.
+
+        Iterates through paginated results, stopping either when no more
+        results are found or when `max_pages` is reached.
+        """
+
+        torrents: list[Torrent] = []
+        for page in range(1, max_pages + 1):
+            self.__navigate(self.config.get_browse_hd_series_url(page))
+
+            # Stop if the "no results" indicator is absent (i.e., results exist)
+            if not self.driver.find_elements(By.XPATH, self.selectors.Xpaths.BrowsePage.TEXT_NOT_FOUND_LIST):
+                break
+
+            torrents.extend(self._get_torrent_data_from_page())
+
+        torrents = self._process_torrent_data(torrents, is_serie=True)
+        torrents = self._distillation_serie_torrent_data(torrents)
         return torrents
 
     # -------------------------------------------------------------------------
@@ -84,21 +105,6 @@ class Scraper:
             self.driver.get(self.config.login_url)
             self.__sleep()
 
-    def _open_browse_hd_movie_page(self) -> None:
-        """Navigate to the HD movie browse page, retrying until all controls are present."""
-        self.__navigate(self.config.browse_hd_url)
-
-        required = [
-            self.selectors.Xpaths.BrowsePage.BUTTON_SORT_BY_SEEDERS,
-            self.selectors.Xpaths.BrowsePage.CHECKBOX_HDHUN_FILTER,
-            self.selectors.Xpaths.BrowsePage.TEXTBOX_SEARCH_FIELD,
-        ]
-
-        while not self._all_elements_present(required):
-            self.logger.warning("Browse page elements not found, retrying...")
-            self.driver.get(self.config.browse_hd_url)
-            self.__sleep()
-
     def _all_elements_present(self, xpaths: list[str]) -> bool:
         """Return True only if every XPath resolves to at least one element."""
         return all(self.driver.find_elements(By.XPATH, xpath) for xpath in xpaths)
@@ -113,31 +119,42 @@ class Scraper:
         `page` is accepted for future use (e.g., logging) but not used directly.
         """
         torrents = self._generate_torrent_stubs()
-        torrents = self._populate_imdb_links(torrents)
         torrents = self._populate_torrent_details(torrents)
+        torrents = self._populate_imdb_links(torrents)
         return torrents
 
     def _generate_torrent_stubs(self) -> list[Torrent]:
         """Create one blank Torrent stub per IMDB link found on the current page."""
-        count = len(self.driver.find_elements(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.IMDB_LINKS))
+        count = len(self.driver.find_elements(
+            By.CSS_SELECTOR,
+            self.selectors.CssSelectors.BrowsePage.IMDB_LINKS)
+        )
         return [Torrent() for _ in range(count)]
 
     def _populate_imdb_links(self, torrents: list[Torrent]) -> list[Torrent]:
         """Write the IMDB URL into each Torrent stub in list order."""
         links = self.driver.find_elements(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.IMDB_LINKS)
         for torrent, link in zip(torrents, links):
-            torrent.imdb_link = link.get_attribute("href")
+            href = link.get_attribute("href")
+            if href is None:
+                raise ValueError(f"Parse error. IMDB link value of torrent {torrent.title} is empty.")
+
+            torrent.imdb_link = href
         return torrents
 
     def _populate_torrent_details(self, torrents: list[Torrent]) -> list[Torrent]:
         """Write the detail page URL and display title into each Torrent stub."""
         links = self.driver.find_elements(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.TORRENT_DETAIL_LINK)
         for torrent, link in zip(torrents, links):
-            torrent.detail_link = link.get_attribute("href")
+            href = link.get_attribute("href")
+            if href is None:
+                raise ValueError(f"Parse error. Torrent detail link value of torrent {torrent.title} is empty.")
+
+            torrent.detail_link = href
             torrent.title = link.text
         return torrents
 
-    def _process_torrent_data(self, torrents: list[Torrent]) -> list[Torrent]:
+    def _process_torrent_data(self, torrents: list[Torrent], is_serie = False) -> list[Torrent]:
         """
         Enrich each Torrent with its numeric ID, download key, quality tag,
         and fully formed download URL — all derived from page source and title text.
@@ -154,9 +171,21 @@ class Scraper:
             torrent.quality = self._get_torrent_quality(torrent.title)
             torrent.download_link = self.config.get_torrent_download_url(torrent_id=torrent.torrent_id, key=key)
 
+            if is_serie:
+                seasons = re.findall(r"S(\d{1,2})", torrent.title)
+                episodes = re.findall(r"E(\d{1,2})", torrent.title)
+
+                torrent.season = int(seasons[0])
+
+                if len(seasons) > 1:
+                    torrent.season_to = int(seasons[1])
+
+                if len(episodes) > 1:
+                    torrent.episode = int(episodes[0])
+
         return torrents
 
-    def _distillation_torrent_data(self, torrents: list[Torrent]) -> list[Torrent]:
+    def _distillation_torrent_data(self, torrents: list[Torrent], is_serie = False) -> list[Torrent]:
         """
         Deduplicate torrents that share the same IMDB link, keeping only
         the highest-quality version. Entries with UNASSIGNED quality are
@@ -180,6 +209,55 @@ class Scraper:
                 best[key] = torrent
 
         return list(best.values())
+
+    def _distillation_serie_torrent_data(self, torrents: list[Torrent]) -> list[Torrent]:
+        """
+        Deduplicate torrents that share the same IMDB link, keeping only
+        the highest-quality version. Entries with UNASSIGNED quality are
+        always discarded when a better-quality duplicate exists.
+        """
+
+        imdb_links: list[str] = []
+        seasons: dict[str, int] = {}
+        singe_season_torrents: list[tuple[str, Torrent]] = []
+
+        # Get all the serie torrents who has only one season
+        for torrent in torrents:
+            if torrent.season_to == -1 and torrent.season > 0:
+                singe_season_torrents.append((torrent.imdb_link, torrent))
+                if torrent.imdb_link not in imdb_links:
+                    imdb_links.append(torrent.imdb_link)
+                    existing = seasons.get(torrent.imdb_link)
+
+                    if existing is None:
+                        seasons[torrent.imdb_link] = torrent.season
+                    else:
+                        seasons[torrent.imdb_link] = max(torrent.season, seasons[torrent.imdb_link])
+        
+        # Assign torrents to series and  seasons
+        
+        torrent_to_seasons: dict[int, Torrent] = {}
+        for imdb_link in imdb_links:
+            related_torrents = next(torrent[1] for torrent in singe_season_torrents if torrent[0] == imdb_link)
+
+            for season in range(1, seasons[imdb_link]):
+                for related_torrent in related_torrents:
+                    key = imdb_link
+                    existing = torrent_to_seasons.get(season)
+
+                    if existing is None:
+                        torrent_to_seasons[season] = related_torrent
+                        continue
+
+                    # Prefer the torrent with the numerically higher quality value
+                    if related_torrent.quality == Quality.UNASSIGNED:
+                        continue  # Never replace a known-quality entry with an unassigned one
+                    if existing.quality == Quality.UNASSIGNED or int(related_torrent.quality.value) > int(existing.quality.value):
+                        best[key] = torrent
+
+
+        return list(singe_season_torrents.values())
+
 
     # -------------------------------------------------------------------------
     # Utility / page-source helpers

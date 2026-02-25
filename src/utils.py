@@ -10,7 +10,7 @@ from db import Database
 from models import Torrent
 
 
-def download_torrent_files(download_path: str, movies: list[Torrent], torrent_files_location: str, logger: Logger) -> list[Torrent]:
+def download_torrent_files(download_path: str, movies: list[Torrent], logger: Logger) -> list[Torrent]:
     """a"""
     headers = {
         "User-Agent": "Mozilla/5.0",
@@ -19,7 +19,7 @@ def download_torrent_files(download_path: str, movies: list[Torrent], torrent_fi
 
     for movie in movies:
         response = requests.get(movie.download_link, headers=headers)
-        download_path = f"{torrent_files_location}/{movie.torrent_id}.torrent"
+        download_path = f"{download_path}/{movie.torrent_id}.torrent"
         movie.torrent_file_location = download_path
 
         if response.status_code == 200:

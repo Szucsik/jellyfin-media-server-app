@@ -17,9 +17,13 @@ class ScraperConfig:
     sleep_time_min: int = 2
     sleep_time_max: int = 7
 
-    def get_browse_hd_pages_url(self, page: int):
+    def get_browse_hd_pages_url(self, page: int) -> str:
         """t"""
         return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=hd_hun&miszerint=seeders&hogyan=DESC"
+
+    def get_browse_hd_series_url(self, page: int) -> str:
+        """t"""
+        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=hdser_hun&miszerint=seeders&hogyan=DESC"
 
     def get_torrent_download_url(self, torrent_id: int, key: str) -> str:
         """a"""

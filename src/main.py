@@ -30,21 +30,35 @@ scraper = Scraper(username=username, password=password)
 scraper.login()
 
 hd_movies: list[Torrent] = scraper.get_all_hd_movies()
+hd_series: list[Torrent] = scraper.get_all_hd_series(max_pages=1)
 
-hd_movies = download_torrent_files(
+# hd_movies = download_torrent_files(
+#     download_path=torrent_files_location,
+#     movies=hd_movies,
+#     logger=logger
+# )
+
+hd_series = download_torrent_files(
     download_path=torrent_files_location,
-    movies=hd_movies,
-    torrent_files_location=torrent_files_location,
+    movies=hd_series,
     logger=logger
 )
 
+# generate_placeholders(
+#     hd_movies,
+#     target_directory="/home/szucsiki/Documents/Projects/jellyfin-server/srv/jellyfin/media/movies/",
+#     placeholder_path="/home/szucsiki/Videos/jellyfin-placeholder.mp4",
+#     logger=logger
+# )
+
 generate_placeholders(
-    hd_movies,
-    target_directory="/home/szucsiki/Documents/Projects/jellyfin-server/srv/jellyfin/media/movies/",
+    hd_series,
+    target_directory="/home/szucsiki/Documents/Projects/jellyfin-server/srv/jellyfin/media/series/",
     placeholder_path="/home/szucsiki/Videos/jellyfin-placeholder.mp4",
     logger=logger
 )
 
-write_new_torrents_to_the_db(hd_movies)
+# write_new_torrents_to_the_db(hd_movies)
+write_new_torrents_to_the_db(hd_series)
 
 print('Finished')
