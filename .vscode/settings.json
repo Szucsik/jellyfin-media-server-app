@@ -1,0 +1,24 @@
+{
+    // 1. Enable Pytest and disable standard unittest
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+
+    // 2. Point Pytest to your test directory and the src folder
+    "python.testing.pytestArgs": [
+        "test"
+    ],
+
+    // 3. Tell VS Code's IntelliSense (Pylance) where your code lives 
+    // This fixes the "Import could not be resolved" red squiggly lines
+    "python.analysis.extraPaths": [
+        "./src"
+    ],
+
+    // 4. Set the PYTHONPATH for the integrated terminal/debugger
+    "terminal.integrated.env.linux": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+    },
+    
+    // 5. Optional: Run tests automatically on save
+    "python.testing.autoTestDiscoverOnSaveEnabled": true
+}
