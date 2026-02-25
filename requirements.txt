@@ -2,3 +2,5 @@ pydantic
 pytest
 torrentool
 sqlmodel
+selenium
+requests
