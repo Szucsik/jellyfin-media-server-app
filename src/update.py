@@ -3,7 +3,7 @@ import os
 
 from models import Torrent
 from ncore_scraper.scraper import Scraper
-from utils import download_torrent_files, generate_placeholders, write_new_torrents_to_the_db
+from utils import download_torrent_files, generate_placeholders, generate_series_placeholders, write_new_torrents_to_the_db
 
 logging.basicConfig(
     filename='run.log',
@@ -29,8 +29,8 @@ scraper = Scraper(username=username, password=password)
 
 scraper.login()
 
-hd_movies: list[Torrent] = scraper.get_all_hd_movies()
-hd_series: list[Torrent] = scraper.get_all_hd_series(max_pages=1)
+# hd_movies: list[Torrent] = scraper.get_all_hd_movies()
+hd_series: list[Torrent] = scraper.get_all_hd_series(max_pages=10)
 
 # hd_movies = download_torrent_files(
 #     download_path=torrent_files_location,
@@ -51,7 +51,7 @@ hd_series = download_torrent_files(
 #     logger=logger
 # )
 
-generate_placeholders(
+generate_series_placeholders (
     hd_series,
     target_directory="/home/szucsiki/Documents/Projects/jellyfin-server/srv/jellyfin/media/series/",
     placeholder_path="/home/szucsiki/Videos/jellyfin-placeholder.mp4",

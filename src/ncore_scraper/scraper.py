@@ -175,6 +175,9 @@ class Scraper:
                 seasons = re.findall(r"S(\d{1,2})", torrent.title)
                 episodes = re.findall(r"E(\d{1,2})", torrent.title)
 
+                if len(seasons) == 0:
+                    continue
+
                 torrent.season = int(seasons[0])
 
                 if len(seasons) > 1:
@@ -212,52 +215,99 @@ class Scraper:
 
     def _distillation_serie_torrent_data(self, torrents: list[Torrent]) -> list[Torrent]:
         """
-        Deduplicate torrents that share the same IMDB link, keeping only
-        the highest-quality version. Entries with UNASSIGNED quality are
-        always discarded when a better-quality duplicate exists.
+        For each series (grouped by IMDB link), produce one Torrent per season.
+        Preference order:
+        1. Single-season torrents over multi-season packs
+        2. Higher quality wins (SD=720 < HD=1080 < UHD=2160),
+            but prefer lower quality over UNASSIGNED.
         """
 
-        imdb_links: list[str] = []
-        seasons: dict[str, int] = {}
-        singe_season_torrents: list[tuple[str, Torrent]] = []
+        # --- helpers -----------------------------------------------------------
 
-        # Get all the serie torrents who has only one season
+        def quality_rank(t: Torrent) -> int:
+            """Lower rank = more preferred (we use min-selection)."""
+            order = {
+                Quality.SD:         1,   # 720p  – most preferred
+                Quality.HD:         2,   # 1080p
+                Quality.UHD:        3,   # 2160p
+                Quality.UNASSIGNED: 99,  # always last
+            }
+            return order.get(t.quality, 99)
+
+        def is_single_season(t: Torrent) -> bool:
+            return t.season_to == -1 and t.season > 0
+        
+        def is_an_episode(t: Torrent) -> bool:
+            match = re.search(r'E(\d+)', torrent.title)
+            return match == None
+
+        def covers_season(t: Torrent, season: int) -> bool:
+            """True when this torrent contains the given season number."""
+            if is_single_season(t):
+                return t.season == season
+            # multi-season pack: season_from..season_to
+            if t.season > 0 and t.season_to > 0:
+                return t.season <= season <= t.season_to
+            return False
+
+        def better(challenger: Torrent, current: Torrent) -> bool:
+            """
+            Returns True if challenger should replace current.
+            Single-season always beats multi-season pack.
+            Within the same 'tier', lower quality_rank wins.
+            """
+            challenger_single = is_single_season(challenger)
+            current_single    = is_single_season(current)
+
+            if challenger_single and not current_single:
+                return True   # single-season beats pack
+            if not challenger_single and current_single:
+                return False  # never replace single with pack
+
+            # same tier → compare quality
+            return quality_rank(challenger) < quality_rank(current)
+
+        # --- group by series ---------------------------------------------------
+
+        # imdb_link -> list of torrents for that series
+        by_series: dict[str, list[Torrent]] = {}
         for torrent in torrents:
-            if torrent.season_to == -1 and torrent.season > 0:
-                singe_season_torrents.append((torrent.imdb_link, torrent))
-                if torrent.imdb_link not in imdb_links:
-                    imdb_links.append(torrent.imdb_link)
-                    existing = seasons.get(torrent.imdb_link)
+            if torrent.season <= 0:        # skip torrents with no season info
+                continue
+            by_series.setdefault(torrent.imdb_link, []).append(torrent)
 
-                    if existing is None:
-                        seasons[torrent.imdb_link] = torrent.season
-                    else:
-                        seasons[torrent.imdb_link] = max(torrent.season, seasons[torrent.imdb_link])
-        
-        # Assign torrents to series and  seasons
-        
-        torrent_to_seasons: dict[int, Torrent] = {}
-        for imdb_link in imdb_links:
-            related_torrents = next(torrent[1] for torrent in singe_season_torrents if torrent[0] == imdb_link)
+        # --- pick one torrent per (series, season) -----------------------------
 
-            for season in range(1, seasons[imdb_link]):
-                for related_torrent in related_torrents:
-                    key = imdb_link
-                    existing = torrent_to_seasons.get(season)
+        result: list[Torrent] = []
 
-                    if existing is None:
-                        torrent_to_seasons[season] = related_torrent
-                        continue
+        for imdb_link, series_torrents in by_series.items():
+            # Find every season number that appears across all torrents
+            all_seasons: set[int] = set()
 
-                    # Prefer the torrent with the numerically higher quality value
-                    if related_torrent.quality == Quality.UNASSIGNED:
-                        continue  # Never replace a known-quality entry with an unassigned one
-                    if existing.quality == Quality.UNASSIGNED or int(related_torrent.quality.value) > int(existing.quality.value):
-                        best[key] = torrent
+            for t in series_torrents:
+            
+                if is_an_episode(t):
+                    continue
 
+                if is_single_season(t):
+                    all_seasons.add(t.season)
+                elif t.season > 0 and t.season_to > 0:
+                    all_seasons.update(range(t.season, t.season_to + 1)) # Todo: kell a +1?
 
-        return list(singe_season_torrents.values())
+            # For each season pick the best torrent
+            for season in sorted(all_seasons):
+                candidates = [t for t in series_torrents if covers_season(t, season)]
+                if not candidates:
+                    continue
 
+                best = candidates[0]
+                for candidate in candidates[1:]:
+                    if better(candidate, best):
+                        best = candidate
+
+                result.append(best)
+
+        return result
 
     # -------------------------------------------------------------------------
     # Utility / page-source helpers

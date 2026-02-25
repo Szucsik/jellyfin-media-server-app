@@ -19,11 +19,11 @@ def download_torrent_files(download_path: str, movies: list[Torrent], logger: Lo
 
     for movie in movies:
         response = requests.get(movie.download_link, headers=headers)
-        download_path = f"{download_path}/{movie.torrent_id}.torrent"
-        movie.torrent_file_location = download_path
+        path = f"{download_path}/{movie.torrent_id}.torrent"
+        movie.torrent_file_location = path
 
         if response.status_code == 200:
-            with open(download_path, "wb") as f:
+            with open(path, "wb") as f:
                 f.write(response.content)
             logger.info("Torrent downloaded successfully.")
         else:
@@ -60,6 +60,31 @@ def generate_placeholders(movies: list[Torrent], target_directory: str, placehol
 
         movie.downloaded = False
         movie.main_movie_file_path = full_target_file
+
+
+def generate_series_placeholders(series: list[Torrent], target_directory: str, placeholder_path: str, logger: Logger) -> None:
+    """a"""
+    video_extensions = {'.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v'}
+
+    for serie in series:
+        torrent = torrentool.Torrent.from_file(serie.torrent_file_location)
+
+        for t in torrent.files:
+            path = Path(t.name)
+
+            if path.suffix.lower() not in video_extensions:
+                continue
+
+            full_target_file = f"{target_directory}/{t.name}"
+
+            directory = Path(target_directory) / path.parent
+            directory.mkdir(parents=True, exist_ok=True)
+
+            if not os.path.isfile(full_target_file):
+                shutil.copy(src=placeholder_path, dst=f"{full_target_file}")
+
+            serie.downloaded = False
+            serie.main_movie_file_path = full_target_file
 
 def write_new_torrents_to_the_db(movies: list[Torrent]):
     """a"""
