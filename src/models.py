@@ -24,6 +24,7 @@ class Torrent(SQLModel, table=True):
     torrent_file_location: str = ""
     downloaded: bool = False
     main_movie_file_path: str = ""
+    symlink_path: str = ""
 
     # Serie data
     season: int = -1

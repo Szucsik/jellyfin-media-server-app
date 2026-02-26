@@ -3,7 +3,7 @@ import os
 
 from models import Torrent
 from ncore_scraper.scraper import Scraper
-from utils import download_torrent_files, generate_placeholders, generate_series_placeholders, write_new_torrents_to_the_db
+from utils import download_torrent_files, generate_placeholders, generate_series_placeholders, write_new_torrents_to_the_db, generate_symlinks_to_the_placheolders
 
 logging.basicConfig(
     filename='run.log',
@@ -30,7 +30,7 @@ scraper = Scraper(username=username, password=password)
 scraper.login()
 
 # hd_movies: list[Torrent] = scraper.get_all_hd_movies()
-hd_series: list[Torrent] = scraper.get_all_hd_series(max_pages=10)
+hd_series: list[Torrent] = scraper.get_all_hd_series(max_pages=11)
 
 # hd_movies = download_torrent_files(
 #     download_path=torrent_files_location,
@@ -53,11 +53,16 @@ hd_series = download_torrent_files(
 
 generate_series_placeholders (
     hd_series,
-    target_directory="/home/szucsiki/Documents/Projects/jellyfin-server/srv/jellyfin/media/series/",
+    target_directory="/home/szucsiki/Documents/Projects/jellyfin-media-server/placeholders_series",
     placeholder_path="/home/szucsiki/Videos/jellyfin-placeholder.mp4",
     logger=logger
 )
 
+generate_symlinks_to_the_placheolders (
+    hd_series, 
+    symlink_directory="/home/szucsiki/Documents/Projects/jellyfin-server/srv/jellyfin/media/series",
+    logger=logger
+)
 # write_new_torrents_to_the_db(hd_movies)
 write_new_torrents_to_the_db(hd_series)
 

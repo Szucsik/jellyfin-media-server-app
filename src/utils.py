@@ -2,6 +2,8 @@ from logging import Logger
 import os
 import requests
 import shutil
+import re
+
 from pathlib import Path
 
 import torrentool.api as torrentool
@@ -84,7 +86,69 @@ def generate_series_placeholders(series: list[Torrent], target_directory: str, p
                 shutil.copy(src=placeholder_path, dst=f"{full_target_file}")
 
             serie.downloaded = False
-            serie.main_movie_file_path = full_target_file
+            serie.main_movie_file_path = f"{serie.main_movie_file_path};{full_target_file}"
+
+def generate_symlinks_to_the_placheolders(series: list[Torrent], symlink_directory: str, logger: Logger) -> None:
+    """a"""
+    season_pattern = re.compile(r"S(\d{1,2})", re.IGNORECASE)
+    year_pattern = re.compile(r"(19\d{2}|20\d{2})")
+    episode_pattern = re.compile(r"E(\d{1,3})", re.IGNORECASE)
+
+
+    for serie in series:
+        files: list[str] = serie.main_movie_file_path.split(';')
+
+        for file in files:
+            diretory_name = Path(file).parent.name
+
+            name = diretory_name.replace(".", " ")
+
+            # --- season ---
+            season_match = season_pattern.search(name)
+            season = season_match.group(1) if season_match else None
+
+            # --- year ---
+            year_match = year_pattern.search(name)
+            year = year_match.group(1) if year_match else None
+
+            # --- title ---
+            cut_positions = []
+
+            if season_match:
+                cut_positions.append(season_match.start())
+            if year_match:
+                cut_positions.append(year_match.start())
+
+            if cut_positions:
+                title = name[:min(cut_positions)]
+            else:
+                title = name
+
+            title = title.strip()
+
+            # Create series directory if not exists
+
+            directory = Path(symlink_directory) / Path(title)
+            directory.mkdir(parents=True, exist_ok=True)
+
+            if season is not None:
+                season_path = Path(directory) / Path(season)
+                directory.mkdir(parents=True, exist_ok=True)
+
+                if "sample" in file.lower():
+                    continue
+
+                match = episode_pattern.search(file)
+
+                if match:
+                    # Extract the digits and format as E01, E02, etc.
+                    episode_num = match.group(1).zfill(2)
+                    Path(file).symlink_to(season_path / Path(f"E{episode_num}.{Path(file).suffix}"))
+
+
+
+
+
 
 def write_new_torrents_to_the_db(movies: list[Torrent]):
     """a"""

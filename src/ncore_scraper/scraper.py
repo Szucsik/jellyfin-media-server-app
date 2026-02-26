@@ -5,6 +5,7 @@ import logging
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from collections import Counter
 
 from ncore_scraper.config import ScraperConfig
 from models import Torrent, Quality
@@ -250,6 +251,28 @@ class Scraper:
                 return t.season <= season <= t.season_to
             return False
 
+        def keep_most_common_prefix(items: list[Torrent]) -> list[Torrent]:
+            # Extract first part of each title
+            prefixes = [
+                item.title.split('.')[0]
+                for item in items
+                if isinstance(item.title, str) and item.title
+            ]
+
+            if not prefixes:
+                return items  # nothing to filter
+
+            # Find most common prefix
+            most_common_prefix, _ = Counter(prefixes).most_common(1)[0]
+
+            # Keep only items that match it
+            filtered = [
+                item for item in items
+                if item.title.split('.')[0] == most_common_prefix
+            ]
+
+            return filtered
+            
         def better(challenger: Torrent, current: Torrent) -> bool:
             """
             Returns True if challenger should replace current.
@@ -283,9 +306,11 @@ class Scraper:
         for imdb_link, series_torrents in by_series.items():
             # Find every season number that appears across all torrents
             all_seasons: set[int] = set()
+            series_torrents = keep_most_common_prefix(series_torrents)
 
             for t in series_torrents:
-            
+                if t.imdb_link == "https://dereferer.link/?https://imdb.com/title/tt12637874/":
+                 print('As')
                 if is_an_episode(t):
                     continue
 
