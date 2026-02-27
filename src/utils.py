@@ -24,12 +24,12 @@ def download_torrent_files(download_path: str, movies: list[Torrent], logger: Lo
         path = f"{download_path}/{movie.torrent_id}.torrent"
         movie.torrent_file_location = path
 
-        if response.status_code == 200:
-            with open(path, "wb") as f:
-                f.write(response.content)
-            logger.info("Torrent downloaded successfully.")
-        else:
-            logger.error("Torrent downloaded failed: %s", movie.title)
+        # if response.status_code == 200:
+        #     with open(path, "wb") as f:
+        #         f.write(response.content)
+        #     logger.info("Torrent downloaded successfully.")
+        # else:
+        #     logger.error("Torrent downloaded failed: %s", movie.title)
 
     return movies
 

@@ -33,5 +33,6 @@ class ScraperSelectors:
         @dataclass(frozen=True)
         class BrowsePage():
             """ s """
+            TORRENT_TEXT_DIV = "div.torrent_txt"
             IMDB_LINKS = "a.infolink"
             TORRENT_DETAIL_LINK = "div.torrent_txt > a[href*='action=details']"
