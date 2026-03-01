@@ -9,7 +9,7 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.by import By
 from collections import Counter
 
-from torrentool import torrent
+import torrentool.api as torrentool
 
 from ncore_scraper.config import ScraperConfig
 from models import Torrent, Quality
@@ -63,10 +63,11 @@ class Scraper:
             if not self.driver.find_elements(By.XPATH, self.selectors.Xpaths.BrowsePage.TEXT_NOT_FOUND_LIST):
                 break
 
-            torrents.extend(self._get_torrent_data_from_page())
+            torrents.extend(self._get_torrent_data_from_page(page))
+
         self._validate_torrent_titles(torrents)
+
         torrents = self._process_torrent_data(torrents)
-        self._validate_torrent_titles(torrents)
         torrents = self._distillation_torrent_data(torrents)
         return torrents
 
@@ -273,8 +274,8 @@ class Scraper:
             return t.season_to == -1 and t.season > 0
         
         def is_an_episode(t: Torrent) -> bool:
-            match = re.search(r'E(\d+)', torrent.title)
-            return match == None
+            match = re.search(r'E(\d+)', t.title)
+            return match is not None
 
         def covers_season(t: Torrent, season: int) -> bool:
             """True when this torrent contains the given season number."""
@@ -344,7 +345,8 @@ class Scraper:
 
             for t in series_torrents:
                 if t.imdb_link == "https://dereferer.link/?https://imdb.com/title/tt12637874/":
-                 print('As')
+                    print('As')
+
                 if is_an_episode(t):
                     continue
 
