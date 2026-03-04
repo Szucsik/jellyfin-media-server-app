@@ -1,0 +1,37 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: jellyfin
+    # Optional - specify the uid and gid you would like Jellyfin to use instead of root
+    user: 1000:1000
+    ports:
+      - 8096:8096/tcp
+      - 7359:7359/udp
+    volumes:
+      - ${VOLUME_CONFIG_DIR}:${VOLUME_CONFIG_TARGET_DIR}
+      - ${VOLUME_CACHE_DIR}:${VOLUME_CACHE_TARGET_DIR}
+      - type: bind
+        source: ${VOLUME_MOVIE_DIR}
+        target: ${VOLUME_MOVIE_TARGET_DIR}
+      - type: bind
+        source: ${VOLUME_SERIES_DIR}
+        target: ${VOLUME_SERIES_TARGET_DIR}
+      - type: bind
+        source: ${VOLUME_DOWNLOADED_DIR}
+        target: ${VOLUME_DOWNLOADED_TARGET_DIR}
+      - type: bind
+        source: ${VOLUME_PLACEHOLDER_DIR}
+        target: ${VOLUME_PLACEHOLDER_TARGET_DIR}
+        read_only: true
+      # Optional - extra fonts to be used during transcoding with subtitle burn-in
+      - type: bind
+        source: ${VOLUME_CUSTOM_FONTS_DIR}
+        target: /usr/local/share/fonts/custom
+        read_only: true
+    restart: 'unless-stopped'
+    # Optional - alternative address used for autodiscovery
+    environment:
+      - JELLYFIN_PublishedServerUrl=http://example.com
+    # Optional - may be necessary for docker healthcheck to pass if running in host network mode
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
