@@ -1,17 +1,20 @@
-from typing import Optional, List
-from sqlmodel import Field, Session, SQLModel, create_engine, select, or_, col
+from sqlmodel import Session, SQLModel, create_engine, select
 
-from models import Torrent
+from database.models.torrent import Torrent
 
 
-class Database:
+class Db:
     """a"""
 
     sqlite_url = "sqlite:///database.db"
     engine = create_engine(sqlite_url)
     SQLModel.metadata.create_all(engine)
 
-    def read(self):
+    def __init__(self, db_location: str):
+        """a"""
+        self.sqlite_url = db_location
+
+    def read_torrents(self):
         """a"""
 
         with Session(self.engine) as session:
@@ -27,7 +30,7 @@ class Database:
             statement = select(Torrent).where(Torrent.title == "Inception")
             inception = session.exec(statement).first()
 
-    def update(self):
+    def update_torrents(self):
         """a"""
 
         with Session(self.engine) as session:
@@ -44,7 +47,7 @@ class Database:
             session.commit()   # Writes to the .db file
             session.refresh(movie) # Optional: update object with DB state
 
-    def write(self, movies: list[Torrent]):
+    def write_torrents(self, torrents: list[Torrent]):
         """a"""
 
         # Create the table if it doesn't exist
@@ -52,20 +55,20 @@ class Database:
 
         # --- NEW: Push to Database (with Upsert logic) ---
         with Session(self.engine) as session:
-            for movie in movies:
+            for torrent in torrents:
                 # Check if movie already exists to avoid Duplicate ID errors
-                statement = select(Torrent).where(Torrent.id == movie.id)
+                statement = select(Torrent).where(Torrent.id == torrent.id)
                 existing_movie = session.exec(statement).first()
 
                 if existing_movie:
                     # Update existing record with new data from scraper
-                    results = movie.model_dump(exclude_unset=True)
+                    results = torrent.model_dump(exclude_unset=True)
                     for key, value in results.items():
                         setattr(existing_movie, key, value)
                     session.add(existing_movie)
                 else:
                     # Add as new record
-                    session.add(movie)
+                    session.add(torrent)
 
             session.commit()
-            print(f"Successfully synced {len(movies)} movies to SQLite.")
+            print(f"Successfully synced {len(torrents)} movies to SQLite.")

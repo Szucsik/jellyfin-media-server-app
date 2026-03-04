@@ -11,8 +11,8 @@ from pathlib import Path
 from sqlalchemy.schema import DropColumnComment
 import torrentool.api as torrentool
 
-from db import Database
-from models import Torrent
+from database.db import Db
+from database.models.torrent import Torrent
 
 
 def download_torrent_files(download_path: str, movies: list[Torrent], logger: Logger) -> list[Torrent]:
@@ -140,7 +140,7 @@ def generate_symlink_to_placeholders(torrents: list[Torrent], symlink_directory:
 
 def write_new_torrents_to_the_db(movies: list[Torrent]):
     """a"""
-    db = Database()
-    db.write(movies)
+    db = Db('a')
+    db.write_torrents(movies)
 
 
