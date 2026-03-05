@@ -11,8 +11,8 @@ from collections import Counter
 
 import torrentool.api as torrentool
 
-from database.db import Db
-from database.models.torrent import Quality, Torrent
+from database.db import TorrentRepository
+from models.torrent import Quality, Torrent
 
 from ncore_scraper.config import ScraperConfig
 from ncore_scraper.selectors import ScraperSelectors
@@ -24,24 +24,20 @@ class Scraper:
     KEY_PATTERN = re.compile(r'<link rel="alternate" href=".*?\/rss\.php\?key=(?P<key>[a-z0-9]+)" title=".*"')
     ID_PATTERN = re.compile(r"id=(\d+)")
 
-    def __init__(self, username: str, password: str, db: Db, for_test: bool = False) -> None:
+    def __init__(self, username: str, password: str, for_test: bool = False) -> None:
         self.logger = logging.getLogger(__name__)
         self.logger.info("Scraper initialized")
-
-        self.db = db
 
         self.username = username
         self.password = password
         self.logged_in = False
 
+        self.torrent_repository = TorrentRepository()
+
         self.config = ScraperConfig()
         self.selectors = ScraperSelectors()
         if for_test is not True:
             self.driver = webdriver.Firefox(self.config.driver_options)
-
-    # -------------------------------------------------------------------------
-    # Public API
-    # -------------------------------------------------------------------------
 
     def login(self) -> None:
         """Log in to ncore.pro and land on the home page."""
@@ -58,6 +54,8 @@ class Scraper:
         Iterates through paginated results, stopping either when no more
         results are found or when `max_pages` is reached.
         """
+        if not self.logged_in:
+            self.login()
 
         for page in range(1, max_pages + 1):
             url = self.config.get_browse_hd_shows_url(page) if is_show else self.config.get_browse_hd_movies_url(page)
@@ -67,7 +65,12 @@ class Scraper:
             if not self.driver.find_elements(By.XPATH, self.selectors.Xpaths.BrowsePage.TEXT_NOT_FOUND_LIST):
                 break
 
-            self.db.write_torrents(self._get_torrent_data_from_page(is_show=is_show,category="HD"))
+            self.torrent_repository.save_many(self._get_torrent_data_from_page(is_show=is_show,category="HD"))
+
+    def close(self) -> None:
+        """Clean up resources (e.g., close the WebDriver)."""
+        if hasattr(self, 'driver'):
+            self.driver.quit()
 
     # -------------------------------------------------------------------------
     # Navigation helpers
@@ -155,6 +158,14 @@ class Scraper:
             torrent.detail_link = href
             torrent.title = link.text
             torrent.key = self._get_download_key()
+
+            match = self.ID_PATTERN.search(torrent.detail_link)
+            if not match:
+                    raise ValueError(f"No valid 'id' parameter found in URL: {torrent.detail_link}")
+            
+            torrent.torrent_id = int(match.group(1))
+            torrent.quality = self._get_torrent_quality(torrent.title)
+            torrent.download_link = self.config.get_torrent_download_url(torrent_id=torrent.torrent_id, key=torrent.key)
         return torrents
 
     # -------------------------------------------------------------------------

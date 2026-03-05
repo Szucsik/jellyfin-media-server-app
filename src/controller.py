@@ -1,46 +1,20 @@
-import logging
-import os
-
-from database.db import Db
-from database.models.torrent import Torrent
+from config import Configuration
+from data_processing.data_processing import DataProcessing
+from database.db import TorrentRepository
+from models.torrent import Torrent
 from ncore_scraper.scraper import Scraper
 
 
-logging.basicConfig(
-    filename='run.log',
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
 
-logger = logging.getLogger(__name__)
 
-username = os.getenv("NCORE_USERNAME")
-password = os.getenv("NCORE_PASSWORD")
+config = Configuration()
+scraper = Scraper(username=config.username, password=config.password)
 
-torrent_files_location = os.getenv("TORRENT_FILES_LOCATION")
-symlink_series_directory = os.getenv("VOLUME_SERIES_DIR")
-symlink_movies_directory = os.getenv("VOLUME_MOVIE_DIR")
-placeholders_directory = os.getenv("VOLUME_PLACEHOLDER_TARGET_DIR")
-downloaded_directory = os.getenv("VOLUME_DOWNLOADED_DIR")
+hd_movies: list[Torrent] = scraper.get_all_hd_torrents(is_show=False, max_pages=2)
+hd_series: list[Torrent] = scraper.get_all_hd_torrents(is_show=True, max_pages=2)
 
-if username is None or username == "" or password is None or password == "":
-    raise ValueError("NCORE_USERNAME or NCORE_PASSWORD is not set")
-
-if torrent_files_location is None:
-    raise ValueError("TORRENT_FILES_LOCATION is not set")
-
-if symlink_series_directory is None or symlink_movies_directory is None or placeholders_directory is None or downloaded_directory is None:
-    raise ValueError("a")
-
-db = Db('a')
-
-scraper = Scraper(username=username, password=password, db=db)
-
-scraper.login()
-
-hd_movies: list[Torrent] = scraper.get_all_hd_torrents(is_show=False)
-hd_series: list[Torrent] = scraper.get_all_hd_torrents(is_show=True, max_pages=11)
+data_processor = DataProcessing()
+data_processor.process()
 
 # def update_list(
 #     media: list[Torrent],
@@ -91,5 +65,5 @@ hd_series: list[Torrent] = scraper.get_all_hd_torrents(is_show=True, max_pages=1
 #     is_series=False
 # )
 
-
+scraper.close()
 print('Finished')

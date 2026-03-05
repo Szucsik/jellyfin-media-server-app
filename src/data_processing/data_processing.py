@@ -1,51 +1,27 @@
-    def _process_torrent_data(self, torrents: list[Torrent], is_serie = False) -> list[Torrent]:
-        """
-        Enrich each Torrent with its numeric ID, download key, quality tag,
-        and fully formed download URL — all derived from page source and title text.
-        """
-        key = self._get_download_key()
+from typing import Counter
 
-        i = 0
-        max = len(torrents)
+from database.db import TorrentRepository, MovieRepository, ShowRepository
+from models.torrent import Quality, Torrent
+from models.show import ShowTorrent
+from models.movie import MovieTorrent
 
-        while i < max:
-            torrent = torrents[i]
-            match = self.ID_PATTERN.search(torrent.detail_link)
-            if not match:
-                raise ValueError(f"No valid 'id' parameter found in URL: {torrent.detail_link}")
+import re
 
-            torrent.torrent_id = int(match.group(1))
-            torrent.key = key
-            torrent.quality = self._get_torrent_quality(torrent.title)
-            torrent.download_link = self.config.get_torrent_download_url(torrent_id=torrent.torrent_id, key=key)
 
-            if torrent.imdb_link == "":
-                torrents.pop(i)
-                i -= 1
-                max -= 1
-                continue
+class DataProcessing:
+    def __init__(self):
+        self.torrent_repository = TorrentRepository()
+        self.movie_repository = MovieRepository()
+        self.show_repository = ShowRepository()
 
-            if is_serie:
-                seasons = re.findall(r"S(\d{1,2})", torrent.title)
-                episodes = re.findall(r"E(\d{1,2})", torrent.title)
+    def process(self):
+        """a"""
+        torrents = self.torrent_repository.get_all()
+        shows = [t for t in torrents if t.is_show]
+        movies = [t for t in torrents if not t.is_show]
 
-                if len(seasons) == 0:
-                    torrents.pop(i)
-                    i -= 1
-                    max -= 1
-                    continue
-
-                torrent.season = int(seasons[0])
-
-                if len(seasons) > 1:
-                    torrent.season_to = int(seasons[1])
-
-                if len(episodes) > 1:
-                    torrent.episode = int(episodes[0])
-
-            i += 1
-
-        return torrents
+        self._distillation_torrent_data(movies)
+        self._distillation_serie_torrent_data(shows)
 
     def _distillation_torrent_data(self, torrents: list[Torrent], is_serie = False) -> list[Torrent]:
         """
@@ -70,9 +46,11 @@
             if existing.quality == Quality.UNASSIGNED or int(torrent.quality.value) > int(existing.quality.value):
                 best[key] = torrent
 
-        return list(best.values())
+        for torrent in best.values():
+            movie = MovieTorrent(torrent_id=torrent.id)
+            self.movie_repository.save(movie)
 
-    def _distillation_serie_torrent_data(self, torrents: list[Torrent]) -> list[Torrent]:
+    def _distillation_serie_torrent_data(self, torrents: list[Torrent]) -> None:
         """
         For each series (grouped by IMDB link), produce one Torrent per season.
         Preference order:
@@ -93,16 +71,16 @@
             }
             return order.get(t.quality, 99)
 
-        def is_single_season(t: Torrent) -> bool:
-            return t.season_to == -1 and t.season > 0
+        def is_single_season(season: int, season_to: int) -> bool:
+            return season_to == -1 and season > 0
         
         def is_an_episode(t: Torrent) -> bool:
             match = re.search(r'E(\d+)', t.title)
             return match is not None
 
-        def covers_season(t: Torrent, season: int) -> bool:
+        def covers_season(t: ShowTorrent, season: int) -> bool:
             """True when this torrent contains the given season number."""
-            if is_single_season(t):
+            if is_single_season(t.season, t.season_to):
                 return t.season == season
             # multi-season pack: season_from..season_to
             if t.season > 0 and t.season_to > 0:
@@ -131,14 +109,14 @@
 
             return filtered
             
-        def better(challenger: Torrent, current: Torrent) -> bool:
+        def better(challenger: tuple[Torrent, ShowTorrent], current: tuple[Torrent, ShowTorrent]) -> bool:
             """
             Returns True if challenger should replace current.
             Single-season always beats multi-season pack.
             Within the same 'tier', lower quality_rank wins.
             """
-            challenger_single = is_single_season(challenger)
-            current_single    = is_single_season(current)
+            challenger_single = is_single_season(challenger[1].season, challenger[1].season_to)
+            current_single    = is_single_season(current[1].season, current[1].season_to)
 
             if challenger_single and not current_single:
                 return True   # single-season beats pack
@@ -146,15 +124,13 @@
                 return False  # never replace single with pack
 
             # same tier → compare quality
-            return quality_rank(challenger) < quality_rank(current)
+            return quality_rank(challenger[0]) < quality_rank(current[0])
 
         # --- group by series ---------------------------------------------------
 
         # imdb_link -> list of torrents for that series
         by_series: dict[str, list[Torrent]] = {}
         for torrent in torrents:
-            if torrent.season <= 0:        # skip torrents with no season info
-                continue
             by_series.setdefault(torrent.imdb_link, []).append(torrent)
 
         # --- pick one torrent per (series, season) -----------------------------
@@ -165,30 +141,44 @@
             # Find every season number that appears across all torrents
             all_seasons: set[int] = set()
             series_torrents = keep_most_common_prefix(series_torrents)
+            shows: list[tuple[Torrent, ShowTorrent]] = []
 
             for t in series_torrents:
-                if t.imdb_link == "https://dereferer.link/?https://imdb.com/title/tt12637874/":
-                    print('As')
+                show = ShowTorrent(torrent_id=t.id)
 
-                if is_an_episode(t):
+                season = re.findall(r"S(\d{1,2})", t.title)
+                season_to = re.findall(r"S(\d{1,2})", t.title)
+                episodes = re.findall(r"E(\d{1,2})", t.title)
+
+                if len(season) == 0:
                     continue
 
-                if is_single_season(t):
-                    all_seasons.add(t.season)
-                elif t.season > 0 and t.season_to > 0:
-                    all_seasons.update(range(t.season, t.season_to + 1)) # Todo: kell a +1?
+                if len(season) > 0:
+                    show.season = int(season[0])
+
+                if len(season_to) > 1:
+                    show.season_to = int(season_to[1])
+
+                if len(episodes) > 1:
+                    show.episode = int(episodes[0])
+
+                shows.append((t, show))
+
+                if is_single_season(show.season, show.season_to):
+                    all_seasons.add(show.season)
+                elif show.season > 0 and show.season_to > 0:
+                    all_seasons.update(range(show.season, show.season_to + 1)) # Todo: kell a +1?
 
             # For each season pick the best torrent
             for season in sorted(all_seasons):
-                candidates = [t for t in series_torrents if covers_season(t, season)]
+                candidates = [s for s in shows if covers_season(s[1], season)]
                 if not candidates:
                     continue
 
-                best = candidates[0]
+                best = [show for show in shows if show[1].torrent_id == candidates[0][1].torrent_id][0]
                 for candidate in candidates[1:]:
+                    candidate = [show for show in shows if show[1].torrent_id == candidate[1].torrent_id][0]
                     if better(candidate, best):
                         best = candidate
 
-                result.append(best)
-
-        return result
+                self.show_repository.save(best[1])
