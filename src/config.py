@@ -31,6 +31,8 @@ class Configuration:
     placeholders_directory = os.getenv("VOLUME_PLACEHOLDER_TARGET_DIR")
     downloaded_directory = os.getenv("VOLUME_DOWNLOADED_DIR")
 
+    placeholder_starter_path = placeholders_directory + "/jellyfin-placeholder.mp4"
+
     if username is None or username == "" or password is None or password == "":
         raise ValueError("NCORE_USERNAME or NCORE_PASSWORD is not set")
 

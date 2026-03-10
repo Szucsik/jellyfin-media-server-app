@@ -1,5 +1,6 @@
 from typing import Counter
 
+from config import Configuration
 from database.db import ShowSeasonsRepository, TorrentRepository, MovieRepository, ShowRepository
 from models.show import Show
 from models.torrent import Quality, Torrent
@@ -10,15 +11,12 @@ import re
 
 
 class DataProcessing:
-    def __init__(self, torrent_repository: TorrentRepository, movie_repository: MovieRepository, show_season_repository: ShowSeasonsRepository, show_repository: ShowRepository):
-        self.torrent_repository = torrent_repository
-        self.movie_repository = movie_repository
-        self.show_season_repository = show_season_repository
-        self.show_repository = show_repository
+    def __init__(self, config: Configuration):
+        self.config = config
 
     def process(self):
         """a"""
-        torrents = self.torrent_repository.get_all()
+        torrents = self.config.torrent_repository.get_all()
         shows = [t for t in torrents if t.is_show]
         movies = [t for t in torrents if not t.is_show]
 
@@ -50,7 +48,7 @@ class DataProcessing:
 
         for torrent in best.values():
             movie = Movie(torrent_id=torrent.id)
-            self.movie_repository.save(movie)
+            self.config.movie_repository.save(movie)
 
     def _process_show_torrent_data(self, torrents: list[Torrent]) -> None:
         """
@@ -152,7 +150,7 @@ class DataProcessing:
 
             # Show season 
             show = Show(imdb_link=imdb_link)
-            self.show_repository.save(show)
+            self.config.show_repository.save(show)
 
             for t in series_torrents:
                 show_season = ShowSeason(torrent_id=t.id)
@@ -193,6 +191,6 @@ class DataProcessing:
                     if better(candidate, best):
                         best = candidate
 
-                show_id = self.show_repository.find_first_by(imdb_link=imdb_link).id
+                show_id = self.config.show_repository.find_first_by(imdb_link=imdb_link).id
                 best[1].show_id = show_id
-                self.show_season_repository.save(best[1])
+                self.config.show_season_repository.save(best[1])

@@ -12,23 +12,10 @@ scraper = Scraper(username=config.username, password=config.password)
 hd_movies: list[Torrent] = scraper.get_all_hd_torrents(is_show=False, max_pages=11)
 hd_series: list[Torrent] = scraper.get_all_hd_torrents(is_show=True, max_pages=11)
 
-data_processor = DataProcessing(
-    torrent_repository=config.torrent_repository,
-    movie_repository=config.movie_repository,
-    show_season_repository=config.show_season_repository,
-    show_repository=config.show_repository
-)
+data_processor = DataProcessing(config=config)
 data_processor.process()
 
-file_processor = FileProcessing(
-    logger=config.logger,
-    download_path=config.torrent_files_location,
-    local_files_repository=config.local_files_repository,
-    show_repository=config.show_repository,
-    show_season_repository=config.show_season_repository,
-    movie_repository=config.movie_repository,
-    torrent_repository=config.torrent_repository
-)
+file_processor = FileProcessing(logger=config.logger, config=config)
 file_processor.process()
 
 # def update_list(
