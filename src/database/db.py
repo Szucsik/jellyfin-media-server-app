@@ -3,9 +3,11 @@ from typing import Generator, Optional, Type, TypeVar
 
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from models.movie import MovieTorrent
-from models.movie import MovieTorrent
-from models.show import ShowTorrent
+from models.local_file_information import LocalFileInformation
+from models.movie import Movie
+from models.movie import Movie
+from models.show import Show
+from models.show_season import ShowSeason
 from models.torrent import Torrent
 
 T = TypeVar("T", bound=SQLModel)
@@ -71,7 +73,7 @@ class BaseRepository:
                 session.expunge(record)
             return record
 
-    def get_all(self, limit: int = 100, offset: int = 0) -> list[T]:
+    def get_all(self, limit: int = 1000, offset: int = 0) -> list[T]:
         with get_session(self.engine) as session:
             statement = select(self.model).offset(offset).limit(limit)
             results = session.exec(statement).all()
@@ -171,10 +173,32 @@ class MovieRepository(BaseRepository):
     """Movie-specific queries on top of the generic CRUD layer."""
 
     def __init__(self, engine=None) -> None:
-        super().__init__(MovieTorrent, engine)
+        super().__init__(Movie, engine)
+
+class ShowSeasonsRepository(BaseRepository):
+    """Show season-specific queries on top of the generic CRUD layer."""
+
+    def __init__(self, engine=None) -> None:
+        super().__init__(ShowSeason, engine)
+
+
+    def get_all_seasons_for_show(self, show_id: int) -> list[ShowSeason]:
+        with get_session(self.engine) as session:
+            statement = select(self.model).where(self.model.show_id == show_id)
+            results = session.exec(statement).all()
+            for r in results:
+                session.expunge(r)
+            return results
 
 class ShowRepository(BaseRepository):
     """Show-specific queries on top of the generic CRUD layer."""
 
     def __init__(self, engine=None) -> None:
-        super().__init__(ShowTorrent, engine)
+        super().__init__(Show, engine)
+
+
+class LocalFilesRepository(BaseRepository):
+    """Local files-specific queries on top of the generic CRUD layer."""
+
+    def __init__(self, engine=None) -> None:
+        super().__init__(LocalFileInformation, engine)

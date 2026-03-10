@@ -1,18 +1,20 @@
 from typing import Counter
 
-from database.db import TorrentRepository, MovieRepository, ShowRepository
+from database.db import ShowSeasonsRepository, TorrentRepository, MovieRepository, ShowRepository
+from models.show import Show
 from models.torrent import Quality, Torrent
-from models.show import ShowTorrent
-from models.movie import MovieTorrent
+from models.show_season import ShowSeason
+from models.movie import Movie
 
 import re
 
 
 class DataProcessing:
-    def __init__(self):
-        self.torrent_repository = TorrentRepository()
-        self.movie_repository = MovieRepository()
-        self.show_repository = ShowRepository()
+    def __init__(self, torrent_repository: TorrentRepository, movie_repository: MovieRepository, show_season_repository: ShowSeasonsRepository, show_repository: ShowRepository):
+        self.torrent_repository = torrent_repository
+        self.movie_repository = movie_repository
+        self.show_season_repository = show_season_repository
+        self.show_repository = show_repository
 
     def process(self):
         """a"""
@@ -20,10 +22,10 @@ class DataProcessing:
         shows = [t for t in torrents if t.is_show]
         movies = [t for t in torrents if not t.is_show]
 
-        self._distillation_torrent_data(movies)
-        self._distillation_serie_torrent_data(shows)
+        self._process_movie_torrent_data(movies)
+        self._process_show_torrent_data(shows)
 
-    def _distillation_torrent_data(self, torrents: list[Torrent], is_serie = False) -> list[Torrent]:
+    def _process_movie_torrent_data(self, torrents: list[Torrent], is_serie = False) -> list[Torrent]:
         """
         Deduplicate torrents that share the same IMDB link, keeping only
         the highest-quality version. Entries with UNASSIGNED quality are
@@ -47,10 +49,10 @@ class DataProcessing:
                 best[key] = torrent
 
         for torrent in best.values():
-            movie = MovieTorrent(torrent_id=torrent.id)
+            movie = Movie(torrent_id=torrent.id)
             self.movie_repository.save(movie)
 
-    def _distillation_serie_torrent_data(self, torrents: list[Torrent]) -> None:
+    def _process_show_torrent_data(self, torrents: list[Torrent]) -> None:
         """
         For each series (grouped by IMDB link), produce one Torrent per season.
         Preference order:
@@ -78,7 +80,7 @@ class DataProcessing:
             match = re.search(r'E(\d+)', t.title)
             return match is not None
 
-        def covers_season(t: ShowTorrent, season: int) -> bool:
+        def covers_season(t: ShowSeason, season: int) -> bool:
             """True when this torrent contains the given season number."""
             if is_single_season(t.season, t.season_to):
                 return t.season == season
@@ -109,7 +111,7 @@ class DataProcessing:
 
             return filtered
             
-        def better(challenger: tuple[Torrent, ShowTorrent], current: tuple[Torrent, ShowTorrent]) -> bool:
+        def better(challenger: tuple[Torrent, ShowSeason], current: tuple[Torrent, ShowSeason]) -> bool:
             """
             Returns True if challenger should replace current.
             Single-season always beats multi-season pack.
@@ -137,14 +139,23 @@ class DataProcessing:
 
         result: list[Torrent] = []
 
+        # Iterate over each show seasons grouped by IMDB link
         for imdb_link, series_torrents in by_series.items():
             # Find every season number that appears across all torrents
             all_seasons: set[int] = set()
+
+            # Show season 
             series_torrents = keep_most_common_prefix(series_torrents)
-            shows: list[tuple[Torrent, ShowTorrent]] = []
+
+            # We need the Torrent and the Showseason together
+            shows: list[tuple[Torrent, ShowSeason]] = []
+
+            # Show season 
+            show = Show(imdb_link=imdb_link)
+            self.show_repository.save(show)
 
             for t in series_torrents:
-                show = ShowTorrent(torrent_id=t.id)
+                show_season = ShowSeason(torrent_id=t.id)
 
                 season = re.findall(r"S(\d{1,2})", t.title)
                 season_to = re.findall(r"S(\d{1,2})", t.title)
@@ -154,20 +165,21 @@ class DataProcessing:
                     continue
 
                 if len(season) > 0:
-                    show.season = int(season[0])
+                    show_season.season = int(season[0])
 
                 if len(season_to) > 1:
-                    show.season_to = int(season_to[1])
+                    show_season.season_to = int(season_to[1])
 
                 if len(episodes) > 1:
-                    show.episode = int(episodes[0])
+                    show_season.episode = int(episodes[0])
 
-                shows.append((t, show))
 
-                if is_single_season(show.season, show.season_to):
-                    all_seasons.add(show.season)
-                elif show.season > 0 and show.season_to > 0:
-                    all_seasons.update(range(show.season, show.season_to + 1)) # Todo: kell a +1?
+                shows.append((t, show_season))
+
+                if is_single_season(show_season.season, show_season.season_to):
+                    all_seasons.add(show_season.season)
+                elif show_season.season > 0 and show_season.season_to > 0:
+                    all_seasons.update(range(show_season.season, show_season.season_to + 1)) # Todo: kell a +1?
 
             # For each season pick the best torrent
             for season in sorted(all_seasons):
@@ -181,4 +193,6 @@ class DataProcessing:
                     if better(candidate, best):
                         best = candidate
 
-                self.show_repository.save(best[1])
+                show_id = self.show_repository.find_first_by(imdb_link=imdb_link).id
+                best[1].show_id = show_id
+                self.show_season_repository.save(best[1])

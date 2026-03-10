@@ -1,6 +1,8 @@
 import logging
 import os
 
+from database.db import LocalFilesRepository, MovieRepository, ShowRepository, ShowSeasonsRepository, TorrentRepository
+
 
 class Configuration:
     """Configuration class for environment variables and logging."""
@@ -11,6 +13,12 @@ class Configuration:
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
+
+    torrent_repository = TorrentRepository()
+    movie_repository = MovieRepository()
+    show_season_repository = ShowSeasonsRepository()
+    show_repository = ShowRepository()
+    local_files_repository = LocalFilesRepository()
 
     logger = logging.getLogger(__name__)
 
