@@ -4,7 +4,7 @@ import re
 import time
 
 import requests
-import torrentool
+import torrentool.api as torrentool
 
 from config import Configuration
 from database.db import LocalFilesRepository, MovieRepository, ShowRepository, ShowSeasonsRepository, TorrentRepository
@@ -25,6 +25,7 @@ class FileProcessing:
     def process(self):
         """a"""
         self.__download_torrent_files()
+        self.__generate_symlink_to_placeholders()
     
     def __download_torrent_files(self):
         """a"""
@@ -55,8 +56,8 @@ class FileProcessing:
 
                 if response.status_code == 200:
                     with open(path, "wb") as f:
-                        print('mock')
-                        # f.write(response.content)
+                        # print('mock')
+                        f.write(response.content)
                     self.__get_torrent_media_file_information(path=path, torrent=associated_torrent)
                     self.logger.info("Torrent downloaded successfully.")
                 else:
@@ -96,15 +97,17 @@ class FileProcessing:
 
             local_file_information.main_media_files_local_path = target_file
 
-    def __generate_symlink_to_placeholders(self, torrents: list[Torrent]) -> None:
+    def __generate_symlink_to_placeholders(self) -> None:
         """a"""
-
         season_pattern = re.compile(r"S(\d{1,2})", re.IGNORECASE)
         year_pattern = re.compile(r"(19\d{2}|20\d{2})")
         episode_pattern = re.compile(r"E(\d{1,3})", re.IGNORECASE)
 
+        torrents: list[Torrent] = self.config.torrent_repository.get_all()
+
         for torrent in torrents:
-            files: list[str] = torrent.main_movie_file_path.split(';')
+            local_file: LocalFileInformation = self.config.local_files_repository.find_first_by(torrent_id=torrent.id)
+            files: list[str] = local_file.main_media_files_local_path.split(';')
 
             for file in files:
                 directory_name = Path(file).parent.name
