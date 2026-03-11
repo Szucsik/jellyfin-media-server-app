@@ -33,13 +33,23 @@ class Configuration:
 
     placeholder_starter_path = placeholders_directory + "/jellyfin-placeholder.mp4"
 
+    jellyfin_url = os.getenv("JELLYFIN_URL")
+    jellyfin_user_id = os.getenv("JELLYFIN_USER_ID")
+    jellyfin_api_key = os.getenv("JELLYFIN_API_KEY")
+
     if username is None or username == "" or password is None or password == "":
         raise ValueError("NCORE_USERNAME or NCORE_PASSWORD is not set")
 
     if torrent_files_location is None:
         raise ValueError("TORRENT_FILES_LOCATION is not set")
 
-    if symlink_series_directory is None or symlink_movies_directory is None or placeholders_directory is None or downloaded_directory is None:
+    if symlink_series_directory is None \
+        or symlink_movies_directory is None \
+        or  placeholders_directory is None \
+        or downloaded_directory is None \
+        or jellyfin_user_id is None \
+        or jellyfin_api_key is None \
+        or jellyfin_user_id is None:
         raise ValueError("One or more directory environment variables are not set")
     
     def __init__(self):

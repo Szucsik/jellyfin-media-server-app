@@ -95,6 +95,8 @@ class FileProcessing:
 
         self.config.local_files_repository.save(local_file_information)
 
+
+
     def __generate_symlink_to_placeholders(self) -> None:
         """a"""
         season_pattern = re.compile(r"S(\d{1,2})", re.IGNORECASE)
@@ -121,7 +123,19 @@ class FileProcessing:
             files: list[str] = local_file.main_media_files_local_path.split(';')
 
             for file in files:
-                directory_name = Path(file).parent.name
+                file_path_parts = Path(file).parts
+
+                directory_name = file_path_parts[0]
+                file_name = file_path_parts[len(file_path_parts)-1]
+                subdirectories = ""
+
+                if len(file_path_parts) > 2:
+                    subdirectories = "/".join(file_path_parts[1:len(file_path_parts)-1])
+
+
+                if "sample" in directory_name.lower() or "sample" in subdirectories.lower() or "sample" in file_name.lower():
+                    continue
+
                 name = directory_name.replace(".", " ")
 
                 # --- season ---
@@ -146,23 +160,32 @@ class FileProcessing:
                     title = name
 
                 title = title.strip()
+            
+                # Add year to the title if exists
+                if year:
+                    title += f" ({year})"
 
+                # Add the metadata provider to the title
+                match = re.search(r"/title/(tt\d+)", torrent.imdb_link)
+                imdb_id = match.group(1)
+                title += f" [imdbib={imdb_id}]"
 
                 # Create series directory if not exists
                 symlink_directory: str = self.config.symlink_series_directory if torrent.is_show else self.config.symlink_movies_directory
                 symlink_directory_path = Path(symlink_directory)
-                directory = Path(symlink_directory_path) / Path(title)
 
-                if Path(self.config.torrent_files_location).name in directory.name:
-                    directory = Path(symlink_directory_path) / Path(Path(file).stem)
-                directory.mkdir(parents=True, exist_ok=True)
+                target_directory = Path(symlink_directory_path) / Path(title)
+                if subdirectories != "":
+                    target_directory = target_directory / Path(subdirectories)
+
+                if Path(self.config.torrent_files_location).name in target_directory.name:
+                    target_directory = Path(symlink_directory_path) / Path(Path(file).stem)
+
+                target_directory.mkdir(parents=True, exist_ok=True)
 
                 if torrent.is_show and season is not None:
-                    season_path = Path(directory) / Path(season)
+                    season_path = Path(target_directory) / Path(season)
                     season_path.mkdir(parents=True, exist_ok=True)
-
-                    if "sample" in file.lower():
-                        continue
 
                     match = episode_pattern.search(file)
 
@@ -176,12 +199,9 @@ class FileProcessing:
 
                         Path(symlink_path).symlink_to(self.config.placeholder_starter_path)
                 else:
-                    symlink_path = Path(directory) / Path(file).name
+                    symlink_path = Path(target_directory) / Path(file).name
 
                     if os.path.islink(symlink_path):
                         os.unlink(symlink_path)
-
-                    if "Üveg" in symlink_path.name:
-                        print('s')
 
                     Path(symlink_path).symlink_to(self.config.placeholder_starter_path)
