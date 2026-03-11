@@ -7,12 +7,9 @@ import requests
 import torrentool.api as torrentool
 
 from config import Configuration
-from database.db import LocalFilesRepository, MovieRepository, ShowRepository, ShowSeasonsRepository, TorrentRepository
-from models import movie
 from models.local_file_information import LocalFileInformation
 from models.movie import Movie
 from models.show import Show
-from models.show_season import ShowSeason
 from models.torrent import Torrent
 
 

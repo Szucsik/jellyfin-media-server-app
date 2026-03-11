@@ -16,54 +16,5 @@ data_processor.process()
 file_processor = FileProcessing(logger=config.logger, config=config)
 file_processor.process()
 
-# def update_list(
-#     media: list[Torrent],
-#     torrent_target_loc: str,
-#     symlink_directory: str,
-#     placeholder_loc: str,
-#     is_series: bool
-# ):
-#     """a"""
-
-#     result = download_torrent_files(
-#         download_path=torrent_target_loc,
-#         movies=media,
-#         logger=logger
-#     )
-
-#     result = get_torrent_media_files_information(
-#         torrents=result,
-#         target_directory=torrent_target_loc,
-#         logger=logger
-#     )
-
-#     generate_symlink_to_placeholders (
-#         result, 
-#         symlink_directory=symlink_directory,
-#         placeholder_file_path=f"{placeholder_loc}/jellyfin-placeholder.mp4",
-#         is_series=is_series,
-#         logger=logger,
-#         download_path=torrent_target_loc
-#     )
-
-#     write_new_torrents_to_the_db(media)
-
-
-# update_list(
-#     media=hd_movies,
-#     torrent_target_loc=torrent_files_location,
-#     symlink_directory=symlink_movies_directory,
-#     placeholder_loc=placeholders_directory,
-#     is_series=False
-# )
-
-# update_list(
-#     media=hd_series,
-#     torrent_target_loc=torrent_files_location,
-#     symlink_directory=symlink_series_directory,
-#     placeholder_loc=placeholders_directory,
-#     is_series=False
-# )
-
 # scraper.close()
 print('Finished')

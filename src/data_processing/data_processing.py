@@ -1,7 +1,6 @@
 from typing import Counter
 
 from config import Configuration
-from database.db import ShowSeasonsRepository, TorrentRepository, MovieRepository, ShowRepository
 from models.show import Show
 from models.torrent import Quality, Torrent
 from models.show_season import ShowSeason
