@@ -65,37 +65,38 @@ class FileProcessing:
 
                     time.sleep(1)
 
-        def __get_torrent_media_file_information(self, path: str, torrent: Torrent) -> None:
-            """a"""
-            local_file_information = LocalFileInformation(
-                torrent_id=torrent.id,
-                torrent_file_local_path=path
-            )
-            torrent_information = torrentool.Torrent.from_file(path)
+    def __get_torrent_media_file_information(self, path: str, torrent: Torrent) -> None:
+        """a"""
+        local_file_information = LocalFileInformation(
+            torrent_id=torrent.id,
+            torrent_file_local_path=path
+        )
+        torrent_information = torrentool.Torrent.from_file(path)
 
-            if torrent.is_show:
-                target_file = ""
-                for t in torrent_information.files:
-                    if target_file == "":
-                        target_file = t.name
-                    else:
-                        target_file += f";{t.name}"
-                    break
-            else:
-                names: list[str] = []
-                sizes: list[int] = []
+        if torrent.is_show:
+            target_file = ""
+            for t in torrent_information.files:
+                if target_file == "":
+                    target_file = t.name
+                else:
+                    target_file += f";{t.name}"
+        else:
+            names: list[str] = []
+            sizes: list[int] = []
 
-                for t in torrent_information.files:
-                    names.append(t.name)
-                    sizes.append(t.length)
+            for t in torrent_information.files:
+                names.append(t.name)
+                sizes.append(t.length)
 
-                max_size = 0
-                for size in sizes:
-                    max_size = max(max_size, size)
+            max_size = 0
+            for size in sizes:
+                max_size = max(max_size, size)
 
-                target_file = names[sizes.index(max_size)]
+            target_file = names[sizes.index(max_size)]
 
-            local_file_information.main_media_files_local_path = target_file
+        local_file_information.main_media_files_local_path = target_file
+
+        self.config.local_files_repository.save(local_file_information)
 
     def __generate_symlink_to_placeholders(self) -> None:
         """a"""
@@ -103,9 +104,22 @@ class FileProcessing:
         year_pattern = re.compile(r"(19\d{2}|20\d{2})")
         episode_pattern = re.compile(r"E(\d{1,3})", re.IGNORECASE)
 
-        torrents: list[Torrent] = self.config.torrent_repository.get_all()
+        movies: list[Movie] = self.config.movie_repository.get_all()
+        shows: list[Show] = self.config.show_repository.get_all()
 
-        for torrent in torrents:
+        torrents_list: list[Torrent] = []
+
+        for show in shows:
+            seasons = self.config.show_season_repository.get_all_seasons_for_show(show.id)
+            for season in seasons:
+                associated_torrent: Torrent = self.config.torrent_repository.find_first_by(id=season.torrent_id)
+                torrents_list.append(associated_torrent)
+
+        for movie in movies:
+            associated_torrent: Torrent = self.config.torrent_repository.find_first_by(id=movie.torrent_id)
+            torrents_list.append(associated_torrent)
+
+        for torrent in torrents_list:
             local_file: LocalFileInformation = self.config.local_files_repository.find_first_by(torrent_id=torrent.id)
             files: list[str] = local_file.main_media_files_local_path.split(';')
 
@@ -138,11 +152,12 @@ class FileProcessing:
 
 
                 # Create series directory if not exists
-
-                directory = Path(self.config.symlink_directory) / Path(title)
+                symlink_directory: str = self.config.symlink_series_directory if torrent.is_show else self.config.symlink_movies_directory
+                symlink_directory_path = Path(symlink_directory)
+                directory = Path(symlink_directory_path) / Path(title)
 
                 if Path(self.config.torrent_files_location).name in directory.name:
-                    directory = Path(self.config.symlink_directory) / Path(Path(file).stem)
+                    directory = Path(symlink_directory_path) / Path(Path(file).stem)
                 directory.mkdir(parents=True, exist_ok=True)
 
                 if torrent.is_show and season is not None:

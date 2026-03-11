@@ -162,6 +162,9 @@ class DataProcessing:
                 if len(season) == 0:
                     continue
 
+                if is_an_episode(t):
+                    continue
+
                 if len(season) > 0:
                     show_season.season = int(season[0])
 
