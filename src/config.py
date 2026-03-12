@@ -31,11 +31,14 @@ class Configuration:
     placeholders_directory = os.getenv("VOLUME_PLACEHOLDER_TARGET_DIR")
     downloaded_directory = os.getenv("VOLUME_DOWNLOADED_DIR")
 
-    placeholder_starter_path = placeholders_directory + "/jellyfin-placeholder.mp4"
-
     jellyfin_url = os.getenv("JELLYFIN_URL")
     jellyfin_user_id = os.getenv("JELLYFIN_USER_ID")
     jellyfin_api_key = os.getenv("JELLYFIN_API_KEY")
+
+    qbittorrent_host = os.getenv("QBITTORRENT_HOST")
+    qbittorrent_port = os.getenv("QBITTORRENT_PORT")
+    qbittorrent_username = os.getenv("QBITTORRENT_USERNAME")
+    qbittorrent_password = os.getenv("QBITTORRENT_PASSWORD")
 
     if username is None or username == "" or password is None or password == "":
         raise ValueError("NCORE_USERNAME or NCORE_PASSWORD is not set")
@@ -49,8 +52,15 @@ class Configuration:
         or downloaded_directory is None \
         or jellyfin_user_id is None \
         or jellyfin_api_key is None \
-        or jellyfin_user_id is None:
+        or jellyfin_user_id is None \
+        or qbittorrent_host is None \
+        or qbittorrent_port is None \
+        or qbittorrent_username is None \
+        or qbittorrent_password is None:
         raise ValueError("One or more directory environment variables are not set")
     
+
+    placeholder_starter_path = placeholders_directory + "/jellyfin-placeholder.mp4"
+
     def __init__(self):
         pass

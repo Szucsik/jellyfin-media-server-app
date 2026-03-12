@@ -10,19 +10,17 @@ import requests
 from config import Configuration
 
 
-@dataclass
-class MediaPlayInfo:
-    name: str
-    jellyfin_id: str
-    played: bool
-    play_count: int
-    last_played_date: Optional[datetime]
-
+class TorrentSync:
+    trigger_path: str
+    imdbid: str = ""
+    downloading: bool = False
 
 class JellyfinApi:
     """Client for querying the Jellyfin API for movies and shows with play status."""
 
     def __init__(self, config: Configuration):
+        self.DOWNLOAD_TORRENT: list[TorrentSync] = []
+
         self.poll_internal   = int(os.getenv("POLL_INTERVAL_SECONDS", "1"))
         self.log_file        = "jellyfin_monitor.log"
         self.logger = config.logger
@@ -101,46 +99,6 @@ class JellyfinApi:
 
         return f"{name} ({year})" if year else name
 
-
-    def media_paths(self, item: dict) -> list[str]:
-        """
-        Return all file paths associated with an item.
-        Tries MediaSources first (most reliable), falls back to the top-level Path field,
-        and finally queries /Items/{id} individually if neither is present.
-        """
-        # 1. MediaSources array (contains Path per source/file)
-        sources = item.get("MediaSources") or []
-        paths = [s["Path"] for s in sources if s.get("Path")]
-        if paths:
-            return paths
-
-        # 2. Top-level Path field
-        top_path = item.get("Path")
-        if top_path:
-            return [top_path]
-
-        # 3. Fallback: fetch the full item detail individually
-        item_id = item.get("Id", "")
-        if not item_id:
-            return []
-        try:
-            url = f"{self.server_url}/Items/{item_id}"
-            params = {"Fields": "MediaSources,Path"}
-            resp = requests.get(url, headers=self._headers(), params=params, timeout=10)
-            resp.raise_for_status()
-            data = resp.json()
-            sources = data.get("MediaSources") or []
-            paths = [s["Path"] for s in sources if s.get("Path")]
-            if paths:
-                return paths
-            top_path = data.get("Path")
-            if top_path:
-                return [top_path]
-        except requests.RequestException as exc:
-            self.logger.warning("Could not fetch media path for %s: %s", item_id, exc)
-
-        return []
-
     # ── State helpers ─────────────────────────────────────────────────────────────
     def load_state(self) -> dict:
         if os.path.exists(self.state_file):
@@ -215,18 +173,17 @@ class JellyfinApi:
             if newly_played and not first_run:
                 self.logger.info("🎬 %d item(s) played for the first time this cycle:", len(newly_played))
                 for item in newly_played:
-                    label = self.item_label(item)
-                    itype = item.get("Type", "?")
-                    paths = self.media_paths(item)
-                    self.logger.info("   ✓  [%s]  %s", itype, label)
-                    if paths:
-                        for path in paths:
-                            self.logger.info("         📁 %s", path)
-                    else:
-                        self.logger.info("         📁 (path unavailable)")
+                    self.DOWNLOAD_TORRENT.append(TorrentSync(trigger_path=item.get("Path", None)))
+
             elif first_run:
                 self.logger.info("First run – baseline captured (%d items tracked).", len(state))
                 first_run = False
 
             self.logger.info("Next poll in %ds…\n", self.poll_internal)
             time.sleep(self.poll_internal)
+
+    def sync_torrents(self) -> None:
+        """a"""
+        while(True):
+            if len(self.DOWNLOAD_TORRENT) > 0:
+                
