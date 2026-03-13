@@ -4,3 +4,4 @@ torrentool
 sqlmodel
 selenium
 requests
+qbittorrent-api

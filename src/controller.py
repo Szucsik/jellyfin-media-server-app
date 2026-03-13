@@ -2,7 +2,7 @@ from config import Configuration
 from data_processing.data_processing import DataProcessing
 from data_processing.file_processing import FileProcessing
 from ncore_scraper.scraper import Scraper
-from jellyfin_api.jellyfin_api import JellyfinApi
+# from jellyfin_api.jellyfin_api import JellyfinApi
 
 config = Configuration()
 # scraper = Scraper(username=config.username, password=config.password)
@@ -13,11 +13,11 @@ config = Configuration()
 # data_processor = DataProcessing(config=config)
 # data_processor.process()
 
-# file_processor = FileProcessing(logger=config.logger, config=config)
-# file_processor.process()
+file_processor = FileProcessing(logger=config.logger, config=config)
+file_processor.process()
 
-jellyfin_api: JellyfinApi = JellyfinApi(config=config)
-jellyfin_api.run_loop()
+# jellyfin_api: JellyfinApi = JellyfinApi(config=config)
+# jellyfin_api.run_loop()
 
 # scraper.close()
 print('Finished')

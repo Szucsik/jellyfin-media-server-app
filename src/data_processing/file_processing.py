@@ -118,6 +118,9 @@ class FileProcessing:
             associated_torrent: Torrent = self.config.torrent_repository.find_first_by(id=movie.torrent_id)
             torrents_list.append(associated_torrent)
 
+        # TODO: Csoportba rendezni inkább a torrenteket imdb id alapján
+        current_imdbid = ""
+        current_dir = ""
         for torrent in torrents_list:
             local_file: LocalFileInformation = self.config.local_files_repository.find_first_by(torrent_id=torrent.id)
             files: list[str] = local_file.main_media_files_local_path.split(';')
@@ -129,7 +132,7 @@ class FileProcessing:
                 file_name = file_path_parts[len(file_path_parts)-1]
                 subdirectories = ""
 
-                if len(file_path_parts) > 2:
+                if len(file_path_parts) > 2:    
                     subdirectories = "/".join(file_path_parts[1:len(file_path_parts)-1])
 
 
@@ -141,6 +144,10 @@ class FileProcessing:
                 # --- season ---
                 season_match = season_pattern.search(name)
                 season = season_match.group(1) if season_match else None
+
+                if season is None and len(subdirectories) > 0:
+                    season_match = season_pattern.search("".join(subdirectories))
+                    season = season_match.group(1) if season_match else None
 
                 # --- year ---
                 year_match = year_pattern.search(name)
@@ -161,14 +168,21 @@ class FileProcessing:
 
                 title = title.strip()
             
-                # Add year to the title if exists
+                # Add year to the title if exists, DISABLED: because of inconsistencies (e.g. for only one seasons it has the year in the title)
                 if year:
                     title += f" ({year})"
+
 
                 # Add the metadata provider to the title
                 match = re.search(r"/title/(tt\d+)", torrent.imdb_link)
                 imdb_id = match.group(1)
-                title += f" [imdbib={imdb_id}]"
+
+                if current_imdbid == imdb_id:
+                    title = current_dir
+                else:
+                    title += f" [imdbib={imdb_id}]"
+                    current_dir = title
+                    current_imdbid = imdb_id
 
                 # Create series directory if not exists
                 symlink_directory: str = self.config.symlink_series_directory if torrent.is_show else self.config.symlink_movies_directory
@@ -183,7 +197,7 @@ class FileProcessing:
 
                 target_directory.mkdir(parents=True, exist_ok=True)
 
-                if torrent.is_show and season is not None:
+                if torrent.is_show:
                     season_path = Path(target_directory) / Path(season)
                     season_path.mkdir(parents=True, exist_ok=True)
 
