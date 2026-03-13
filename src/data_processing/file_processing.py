@@ -145,9 +145,12 @@ class FileProcessing:
                 season_match = season_pattern.search(name)
                 season = season_match.group(1) if season_match else None
 
-                if season is None and len(subdirectories) > 0:
-                    season_match = season_pattern.search("".join(subdirectories))
-                    season = season_match.group(1) if season_match else None
+                if torrent.is_show:
+                    season_to = self.config.show_season_repository.find_first_by(torrent_id=torrent.id).season_to
+                    if (season is None or season_to > -1) and len(subdirectories) > 0:
+                        season_match = season_pattern.search("".join(subdirectories))
+                        season = season_match.group(1) if season_match else None
+                        subdirectories = ""
 
                 # --- year ---
                 year_match = year_pattern.search(name)
@@ -171,7 +174,6 @@ class FileProcessing:
                 # Add year to the title if exists, DISABLED: because of inconsistencies (e.g. for only one seasons it has the year in the title)
                 if year:
                     title += f" ({year})"
-
 
                 # Add the metadata provider to the title
                 match = re.search(r"/title/(tt\d+)", torrent.imdb_link)
