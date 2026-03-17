@@ -5,3 +5,5 @@ sqlmodel
 selenium
 requests
 qbittorrent-api
+fastapi
+uvicorn
