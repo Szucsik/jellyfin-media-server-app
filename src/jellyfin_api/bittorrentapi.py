@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import qbittorrentapi
 import torrentool.api as torrentool
@@ -15,6 +16,7 @@ class BittorrentAPI:
         self.qbittorrent_username = config.qbittorrent_username
         self.qbittorrent_password = config.qbittorrent_password
         self.stop_event = asyncio.Event()
+        self.logger = logging.getLogger(__name__)
 
     POLL_INTERVAL = 3
     DONE_STATES = {"uploading", "stalledUP", "pausedUP", "queuedUP", "forcedUP"}
@@ -35,22 +37,22 @@ class BittorrentAPI:
             return client
 
         client = await loop.run_in_executor(None, connect)
-        print("✓ Connected to qBittorrent", client.app.version)
+        self.logger.info("Connected to qBittorrent %s", client.app.version)
 
         # ── Read hash from .torrent file ──────────────────────────────────────
         torrent_info = torrentool.Torrent.from_file(torrent_path)
         torrent_hash = torrent_info.info_hash.lower()
-        print(f"✓ Torrent hash: {torrent_hash}")
+        self.logger.info("Torrent hash: %s", torrent_hash)
 
         # ── Add torrent ───────────────────────────────────────────────────────
         await loop.run_in_executor(
             None,
             lambda: client.torrents_add(torrent_files=torrent_path),
         )
-        print("✓ Torrent added")
+        self.logger.info("Torrent added")
 
         # ── Wait for metadata ─────────────────────────────────────────────────
-        print("⏳ Waiting for metadata…")
+        self.logger.info("Waiting for metadata…")
         while True:
             torrents = await loop.run_in_executor(
                 None, lambda: client.torrents_info(torrent_hashes=torrent_hash)
@@ -76,11 +78,9 @@ class BittorrentAPI:
             eta_s    = t.eta
             eta_str  = f"{eta_s // 60}m {eta_s % 60}s" if eta_s >= 0 else "unknown"
 
-            print(
-                f"\r  {pct:5.1f}%  |  {speed_mb:6.2f} MB/s  |  "
-                f"ETA {eta_str:>10}  |  seeds {t.num_seeds}  peers {t.num_leechs}   ",
-                end="",
-                flush=True,
+            self.logger.info(
+                "%5.1f%%  |  %6.2f MB/s  |  ETA %s  |  seeds %s  peers %s",
+                pct, speed_mb, eta_str, t.num_seeds, t.num_leechs,
             )
 
             if t.state in self.DONE_STATES or t.progress >= 1.0:
@@ -91,10 +91,10 @@ class BittorrentAPI:
         # ── Done ──────────────────────────────────────────────────────────────
         self.stop_event.set()
 
-        print("\n\n✅ Download complete!")
+        self.logger.info("Download complete!")
         if t:
-            print(f"   Name  : {t.name}")
-            print(f"   Size  : {t.size / 1e9:.2f} GB")
-            print(f"   Saved : {t.save_path}")
+            self.logger.info("Name: %s", t.name)
+            self.logger.info("Size: %.2f GB", t.size / 1e9)
+            self.logger.info("Saved: %s", t.save_path)
             return t.save_path
         return ""

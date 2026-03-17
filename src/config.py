@@ -8,10 +8,13 @@ class Configuration:
     """Configuration class for environment variables and logging."""
     
     logging.basicConfig(
-        filename='run.log',
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        datefmt='%Y-%m-%d %H:%M:%S',
+        handlers=[
+            logging.FileHandler('run.log'),
+            logging.StreamHandler(),
+        ],
     )
 
     torrent_repository = TorrentRepository()
