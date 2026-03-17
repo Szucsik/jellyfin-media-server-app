@@ -51,7 +51,7 @@ class JellyfinApi:
             "IncludeItemTypes": types_param,
             "Recursive": "true",
             "Fields": "UserData,Id,Name,Type,ProductionYear,SeriesName,ParentIndexNumber,IndexNumber,MediaSources,Path",
-            "Limit": 5000,
+            # "Limit": 5000,
         }
 
         try:
