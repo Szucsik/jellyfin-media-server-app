@@ -105,7 +105,7 @@ class JellyfinApi:
             count = self.play_count(item)
 
             prev = self.state.get(item_id)
-            if prev is not None and prev == 0 and count >= 1 and not self.first_run:
+            if prev is not None and count > prev and not self.first_run:
                 newly_played.append(item)
 
             self.state[item_id] = count
