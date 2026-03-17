@@ -109,8 +109,8 @@ class FileProcessing:
 
     def generate_symlinks_for_shows(self, shows: list[Show]):
         utils = FileProcessingUtils()
-        episode_pattern = re.compile(r"E(\d{1,3})", re.IGNORECASE)
         for show in shows:
+            target_directory = ""
             seasons = self.config.show_season_repository.get_all_seasons_for_show(show.id)
             for season in seasons:
                 associated_torrent: Torrent = self.config.torrent_repository.find_first_by(id=season.torrent_id)
@@ -125,7 +125,8 @@ class FileProcessing:
                 show_file_formatted.name += f" [imdbib={imdb_id}]"
 
                 symlink_directory_path = Path(self.config.symlink_series_directory)
-                target_directory = Path(symlink_directory_path) / Path(show_file_formatted.name)
+                if target_directory == "":
+                    target_directory = Path(symlink_directory_path) / Path(show_file_formatted.name)
                 target_directory.mkdir(parents=True, exist_ok=True)
                 if "Game.of" in associated_torrent.title:
                     print("'")
