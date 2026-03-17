@@ -1,4 +1,46 @@
 services:
+  media-server-app:
+    build: .
+    container_name: media-server-app
+    ports:
+      - 8000:8000
+      - 8001:8001
+    volumes:
+      - type: bind
+        source: ${VOLUME_MOVIE_DIR}
+        target: ${VOLUME_MOVIE_DIR}
+      - type: bind
+        source: ${VOLUME_SERIES_DIR}
+        target: ${VOLUME_SERIES_DIR}
+      - type: bind
+        source: ${VOLUME_DOWNLOADED_DIR}
+        target: ${VOLUME_DOWNLOADED_DIR}
+      - type: bind
+        source: ${VOLUME_PLACEHOLDER_DIR}
+        target: ${VOLUME_PLACEHOLDER_TARGET_DIR}
+        read_only: true
+      - type: bind
+        source: ${TORRENT_FILES_LOCATION}
+        target: ${TORRENT_FILES_LOCATION}
+    environment:
+      - NCORE_USERNAME=${NCORE_USERNAME}
+      - NCORE_PASSWORD=${NCORE_PASSWORD}
+      - TORRENT_FILES_LOCATION=${TORRENT_FILES_LOCATION}
+      - VOLUME_SERIES_DIR=${VOLUME_SERIES_DIR}
+      - VOLUME_MOVIE_DIR=${VOLUME_MOVIE_DIR}
+      - VOLUME_PLACEHOLDER_TARGET_DIR=${VOLUME_PLACEHOLDER_TARGET_DIR}
+      - VOLUME_DOWNLOADED_DIR=${VOLUME_DOWNLOADED_DIR}
+      - JELLYFIN_URL=http://jellyfin:8096
+      - JELLYFIN_USER_ID=${JELLYFIN_USER_ID}
+      - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
+      - QBITTORRENT_HOST=${QBITTORRENT_HOST}
+      - QBITTORRENT_PORT=${QBITTORRENT_PORT}
+      - QBITTORRENT_USERNAME=${QBITTORRENT_USERNAME}
+      - QBITTORRENT_PASSWORD=${QBITTORRENT_PASSWORD}
+    depends_on:
+      - jellyfin
+    restart: unless-stopped
+
   jellyfin:
     image: jellyfin/jellyfin
     container_name: jellyfin
