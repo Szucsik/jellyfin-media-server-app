@@ -2,7 +2,7 @@
 """Launch both FastAPI applications (parsing + sync) in a single process."""
 
 import uvicorn
-from database import init_db
+from database.db import init_db
 import multiprocessing
 
 
