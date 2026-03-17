@@ -19,8 +19,8 @@ class BittorrentAPI:
     POLL_INTERVAL = 3
     DONE_STATES = {"uploading", "stalledUP", "pausedUP", "queuedUP", "forcedUP"}
 
-    async def torrent_task(self, torrent_path: str) -> None:
-        """Add a torrent, wait for it to complete, and signal stop_event when done."""
+    async def torrent_task(self, torrent_path: str) -> str:
+        """Add a torrent, wait for it to complete, and return the save_path."""
         loop = asyncio.get_running_loop()
 
         # ── Connect ───────────────────────────────────────────────────────────
@@ -96,3 +96,5 @@ class BittorrentAPI:
             print(f"   Name  : {t.name}")
             print(f"   Size  : {t.size / 1e9:.2f} GB")
             print(f"   Saved : {t.save_path}")
+            return t.save_path
+        return ""

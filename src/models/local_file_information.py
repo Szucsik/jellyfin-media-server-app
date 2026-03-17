@@ -14,3 +14,5 @@ class LocalFileInformation(SQLModel, table=True):
     )
     torrent_file_local_path: Optional[str] = Field(default=None)
     main_media_files_local_path: Optional[str] = Field(default=None)
+    original_file_path: Optional[str] = Field(default=None)
+    symlink_path: Optional[str] = Field(default=None)

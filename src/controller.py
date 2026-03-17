@@ -1,8 +1,10 @@
+import asyncio
+
 from config import Configuration
 from data_processing.data_processing import DataProcessing
 from data_processing.file_processing import FileProcessing
 from ncore_scraper.scraper import Scraper
-# from jellyfin_api.jellyfin_api import JellyfinApi
+from sync import TorrentSyncService
 
 config = Configuration()
 # scraper = Scraper(username=config.username, password=config.password)
@@ -16,8 +18,8 @@ config = Configuration()
 file_processor = FileProcessing(logger=config.logger, config=config)
 file_processor.process()
 
-# jellyfin_api: JellyfinApi = JellyfinApi(config=config)
-# jellyfin_api.run_loop()
+sync_service = TorrentSyncService(config=config)
+asyncio.run(sync_service.run())
 
 # scraper.close()
 print('Finished')

@@ -169,6 +169,17 @@ class TorrentRepository(BaseRepository):
     def __init__(self, engine=None) -> None:
         super().__init__(Torrent, engine)
 
+    def find_by_imdb_id(self, imdb_id: str) -> Optional[Torrent]:
+        """Find a torrent whose imdb_link contains the given IMDb ID (e.g. 'tt123456')."""
+        with get_session(self.engine) as session:
+            statement = select(self.model).where(
+                self.model.imdb_link.contains(imdb_id)
+            )
+            record = session.exec(statement).first()
+            if record:
+                session.expunge(record)
+            return record
+
 class MovieRepository(BaseRepository):
     """Movie-specific queries on top of the generic CRUD layer."""
 

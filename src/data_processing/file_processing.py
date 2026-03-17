@@ -129,6 +129,8 @@ class FileProcessing:
                 target_directory.mkdir(parents=True, exist_ok=True)
                 if "Game.of" in associated_torrent.title:
                     print("'")
+                symlink_paths: list[str] = []
+                original_paths: list[str] = []
                 for s in show_file_formatted.seasons:
                     season_path = Path(target_directory) / Path(str(s.number))
                     season_path.mkdir(parents=True, exist_ok=True)
@@ -140,6 +142,12 @@ class FileProcessing:
                             os.unlink(symlink_path)
 
                         Path(symlink_path).symlink_to(self.config.placeholder_starter_path)
+                        symlink_paths.append(str(symlink_path))
+                        original_paths.append(e.original_path)
+
+                local_file.symlink_path = ";".join(symlink_paths)
+                local_file.original_file_path = ";".join(original_paths)
+                self.config.local_files_repository.save(local_file)
 
     def generate_symlinks_for_movies(self, movies: list[Movie]):
         year_pattern = re.compile(r"(19\d{2}|20\d{2})")
@@ -208,4 +216,8 @@ class FileProcessing:
                     os.unlink(symlink_path)
 
                 Path(symlink_path).symlink_to(self.config.placeholder_starter_path)
+
+                local_file.symlink_path = str(symlink_path)
+                local_file.original_file_path = file
+                self.config.local_files_repository.save(local_file)
             

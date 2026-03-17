@@ -1,8 +1,5 @@
-import time
 import os
 import json
-from dataclasses import dataclass
-from datetime import datetime
 from typing import Optional
 
 import requests
@@ -10,24 +7,14 @@ import requests
 from config import Configuration
 
 
-class TorrentSync:
-    trigger_path: str
-    imdbid: str = ""
-    downloading: bool = False
-
 class JellyfinApi:
     """Client for querying the Jellyfin API for movies and shows with play status."""
 
     def __init__(self, config: Configuration):
-        self.DOWNLOAD_TORRENT: list[TorrentSync] = []
-
-        self.poll_internal   = int(os.getenv("POLL_INTERVAL_SECONDS", "1"))
-        self.log_file        = "jellyfin_monitor.log"
         self.logger = config.logger
-
         self.state_file = "state"
 
-        self.server_url = config.jellyfin_url
+        self.server_url = config.jellyfin_url.rstrip("/")
         self.api_key = config.jellyfin_api_key
         self.user_id = config.jellyfin_user_id
 
@@ -35,8 +22,6 @@ class JellyfinApi:
             raise ValueError("JELLYFIN_API_KEY environment variable is not set")
         if not self.user_id:
             raise ValueError("JELLYFIN_USER_ID environment variable is not set")
-
-        self.server_url = self.server_url.rstrip("/")
 
     # ── Jellyfin helpers ──────────────────────────────────────────────────────────
     def _headers(self) -> dict:
@@ -115,75 +100,31 @@ class JellyfinApi:
             json.dump(state, f, indent=2)
 
 
-    # ── Core loop ─────────────────────────────────────────────────────────────────
-    def run_loop(self) -> None:
-        self.logger.info("=" * 60)
-        self.logger.info("Jellyfin Monitor starting")
-        self.logger.info("  Server : %s", self.server_url)
-        self.logger.info("  Interval: %ds", self.poll_internal)
-        self.logger.info("=" * 60)
+    # ── Core polling ────────────────────────────────────────────────────────────
+    def poll_once(self, state: dict[str, int], first_run: bool) -> list[dict]:
+        """
+        Fetch items, diff against *state*, and return newly-played items.
 
-        if not self.api_key:
-            self.logger.error("JELLYFIN_API_KEY is not set. Edit .env and restart.")
-            return
+        Updates *state* in place and persists it to disk.
+        Returns an empty list on the first run (baseline capture).
+        """
+        items = self.fetch_items(["Movie", "Series", "Episode"])
 
-        # Load persisted play counts from previous run
-        state: dict[str, int] = self.load_state()   # { item_id: play_count }
-        first_run = not bool(state)
+        if not items:
+            self.logger.warning("No items returned – check credentials/URL.")
+            return []
 
-        while True:
-            self.logger.info("Polling Jellyfin…")
-            items = self.fetch_items(["Movie", "Series", "Episode"])
+        newly_played: list[dict] = []
 
-            if not items:
-                self.logger.warning("No items returned – check credentials/URL.")
-                time.sleep(self.poll_internal)
-                continue
+        for item in items:
+            item_id = item.get("Id", "")
+            count = self.play_count(item)
 
-            unplayed: list[dict] = []
-            newly_played: list[dict] = []
+            prev = state.get(item_id)
+            if prev is not None and prev == 0 and count >= 1 and not first_run:
+                newly_played.append(item)
 
-            for item in items:
-                item_id = item.get("Id", "")
-                count   = self.play_count(item)
+            state[item_id] = count
 
-                if count == 0:
-                    unplayed.append(item)
-
-                prev = state.get(item_id)
-                if prev is not None and prev == 0 and count >= 1:
-                    newly_played.append(item)
-
-                # Update state
-                state[item_id] = count
-
-            self.save_state(state)
-
-            # ── Report unplayed ───────────────────────────────────────────────────
-            movies   = [i for i in unplayed if i.get("Type") == "Movie"]
-            episodes = [i for i in unplayed if i.get("Type") == "Episode"]
-            series   = [i for i in unplayed if i.get("Type") == "Series"]
-
-            self.logger.info(
-                "Unplayed — Movies: %d | Series: %d | Episodes: %d",
-                len(movies), len(series), len(episodes),
-            )
-
-            # ── Report newly played ───────────────────────────────────────────────
-            if newly_played and not first_run:
-                self.logger.info("🎬 %d item(s) played for the first time this cycle:", len(newly_played))
-                for item in newly_played:
-                    self.DOWNLOAD_TORRENT.append(TorrentSync(trigger_path=item.get("Path", None)))
-
-            elif first_run:
-                self.logger.info("First run – baseline captured (%d items tracked).", len(state))
-                first_run = False
-
-            self.logger.info("Next poll in %ds…\n", self.poll_internal)
-            time.sleep(self.poll_internal)
-
-    def sync_torrents(self) -> None:
-        """a"""
-        while(True):
-            if len(self.DOWNLOAD_TORRENT) > 0:
-                
+        self.save_state(state)
+        return newly_played
