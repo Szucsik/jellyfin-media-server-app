@@ -67,6 +67,8 @@ class Scraper:
 
             self.torrent_repository.save_many(self._get_torrent_data_from_page(is_show=is_show,category="HD"))
 
+        self.close()
+
     def close(self) -> None:
         """Clean up resources (e.g., close the WebDriver)."""
         if hasattr(self, 'driver'):

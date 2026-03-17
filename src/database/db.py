@@ -28,6 +28,10 @@ def _create_engine(db_url: str):
 _default_engine = _create_engine("sqlite:///database.db")
 
 
+def init_db(engine=None) -> None:
+    """Create all tables. Call this ONCE from the main process before forking."""
+    SQLModel.metadata.create_all(engine or _default_engine)
+
 @contextmanager
 def get_session(engine=None) -> Generator[Session, None, None]:
     """Context manager that provides a session and handles commit/rollback."""
@@ -60,8 +64,6 @@ class BaseRepository:
     def __init__(self, model: Type[T], engine=None) -> None:
         self.model = model
         self.engine = engine or _default_engine
-        SQLModel.metadata.create_all(self.engine)
-
     # ------------------------------------------------------------------
     # Read
     # ------------------------------------------------------------------
