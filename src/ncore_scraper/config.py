@@ -12,7 +12,7 @@ class ScraperConfig:
     browse_hd_url: str = "https://ncore.pro/torrents.php?tipus=kivalasztottak_kozott&kivalasztott_tipus=hd_hun&miszerint=seeders&hogyan=DESC"
     
     driver_options = Options()
-    # driver_options.add_argument("-headless")
+    driver_options.add_argument("-headless")
 
     sleep_time_min: int = 2
     sleep_time_max: int = 7
