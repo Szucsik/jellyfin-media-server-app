@@ -1,5 +1,3 @@
-import os
-import json
 from typing import Optional
 
 import requests
@@ -12,11 +10,13 @@ class JellyfinApi:
 
     def __init__(self, config: Configuration):
         self.logger = config.logger
-        self.state_file = "state"
 
         self.server_url = config.jellyfin_url.rstrip("/")
         self.api_key = config.jellyfin_api_key
         self.user_id = config.jellyfin_user_id
+
+        self.state: dict[str, int] = {}
+        self.first_run = True
 
         if not self.api_key:
             raise ValueError("JELLYFIN_API_KEY environment variable is not set")
@@ -84,24 +84,8 @@ class JellyfinApi:
 
         return f"{name} ({year})" if year else name
 
-    # ── State helpers ─────────────────────────────────────────────────────────────
-    def load_state(self) -> dict:
-        if os.path.exists(self.state_file):
-            try:
-                with open(self.state_file, encoding="utf-8") as f:
-                    return json.load(f)
-            except (json.JSONDecodeError, OSError):
-                pass
-        return {}
-
-
-    def save_state(self, state: dict) -> None:
-        with open(self.state_file, "w", encoding="utf-8") as f:
-            json.dump(state, f, indent=2)
-
-
     # ── Core polling ────────────────────────────────────────────────────────────
-    def poll_once(self, state: dict[str, int], first_run: bool) -> list[dict]:
+    def poll_once(self) -> list[dict]:
         """
         Fetch items, diff against *state*, and return newly-played items.
 
@@ -120,11 +104,13 @@ class JellyfinApi:
             item_id = item.get("Id", "")
             count = self.play_count(item)
 
-            prev = state.get(item_id)
-            if prev is not None and prev == 0 and count >= 1 and not first_run:
+            prev = self.state.get(item_id)
+            if prev is not None and prev == 0 and count >= 1 and not self.first_run:
                 newly_played.append(item)
 
-            state[item_id] = count
+            self.state[item_id] = count
 
-        self.save_state(state)
+        if self.first_run:
+            self.first_run = False
+
         return newly_played

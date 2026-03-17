@@ -34,20 +34,14 @@ class TorrentSyncService:
     async def _poll_jellyfin(self) -> None:
         loop = asyncio.get_running_loop()
 
-        state: dict[str, int] = await loop.run_in_executor(None, self.jellyfin.load_state)
-        first_run = not bool(state)
-
         self.logger.info("Jellyfin poller started (server: %s)", self.jellyfin.server_url)
 
         while True:
             newly_played = await loop.run_in_executor(
-                None, self.jellyfin.poll_once, state, first_run,
+                None, self.jellyfin.poll_once,
             )
 
-            if first_run:
-                self.logger.info("First run – baseline captured (%d items tracked).", len(state))
-                first_run = False
-            elif newly_played:
+            if newly_played:
                 self.logger.info("🎬 %d item(s) played since last poll", len(newly_played))
                 for item in newly_played:
                     asyncio.create_task(self._handle_played_item(item))
