@@ -1,0 +1,28 @@
+#!/usr/bin/env python3
+"""Launch both FastAPI applications (parsing + sync) in a single process."""
+
+import uvicorn
+import multiprocessing
+
+
+def run_parsing_api() -> None:
+    uvicorn.run("parsing_api:app", host="0.0.0.0", port=8000)
+
+
+def run_sync_api() -> None:
+    uvicorn.run("sync_api:app", host="0.0.0.0", port=8001)
+
+
+if __name__ == "__main__":
+    parsing = multiprocessing.Process(target=run_parsing_api, daemon=True)
+    sync = multiprocessing.Process(target=run_sync_api, daemon=True)
+
+    parsing.start()
+    sync.start()
+
+    try:
+        parsing.join()
+        sync.join()
+    except KeyboardInterrupt:
+        parsing.terminate()
+        sync.terminate()
