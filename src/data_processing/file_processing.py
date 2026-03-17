@@ -122,7 +122,7 @@ class FileProcessing:
 
                 match = re.search(r"/title/(tt\d+)", associated_torrent.imdb_link)
                 imdb_id = match.group(1)
-                show_file_formatted.name += f" [imdbib={imdb_id}]"
+                show_file_formatted.name += f" [imdbid={imdb_id}]"
 
                 symlink_directory_path = Path(self.config.symlink_series_directory)
                 if target_directory == "":
@@ -197,7 +197,7 @@ class FileProcessing:
                 # Add the metadata provider to the title
                 match = re.search(r"/title/(tt\d+)", associated_torrent.imdb_link)
                 imdb_id = match.group(1)
-                title += f" [imdbib={imdb_id}]"
+                title += f" [imdbid={imdb_id}]"
 
                 # Create series directory if not exists
                 symlink_directory_path = Path(self.config.symlink_movies_directory)
@@ -207,7 +207,7 @@ class FileProcessing:
                     target_directory = target_directory / Path(subdirectories)
 
                 if Path(self.config.torrent_files_location).name in target_directory.name:
-                    target_directory = Path(symlink_directory_path) / Path(Path(file).stem + f" [imdbib={imdb_id}]")
+                    target_directory = Path(symlink_directory_path) / Path(Path(file).stem + f" [imdbid={imdb_id}]")
 
                 target_directory.mkdir(parents=True, exist_ok=True)
 
