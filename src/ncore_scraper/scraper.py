@@ -325,7 +325,8 @@ class Scraper:
         - Home page            → optionally dismiss the welcome pop-up
         """
         url = self.driver.current_url
-
+        self.logger.info("Handle post login redicrections, current url: %s", url)
+        
         if url == self.config.premium_shop_url:
             self.logger.info("Redirected to premium shop — navigating home")
             self.__click_button(self.selectors.Xpaths.HomePage.BUTTON_HOME_PAGE_FROM_PREMIUM, "BACK_TO_HOME")
@@ -341,6 +342,8 @@ class Scraper:
                     self.__click_button(welcome_btn, "CLOSE_WELCOME")
                 except Exception as e:  
                     self.logger.error("Failed to dismiss welcome message: %s", e)
+
+            
 
     def __write_to_textbox(self, text: str, xpath: str, label: str) -> None:
         """Locate a text input by XPath, type `text` into it, then sleep."""

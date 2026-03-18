@@ -27,6 +27,8 @@ class FileProcessing:
     
     def __download_torrent_files(self):
         """a"""
+        self.logger.info("Download torrents process started")
+        
         movies: list[Movie] = self.config.movie_repository.get_all()
         shows: list[Show] = self.config.show_repository.get_all()
 
@@ -43,9 +45,12 @@ class FileProcessing:
                 associated_torrent: Torrent = self.config.torrent_repository.find_first_by(id=season.torrent_id)
                 torrents_list.append(associated_torrent)
 
+        self.logger.info("Show torrents collected: %s", len(torrents_list))
         for movie in movies:
             associated_torrent: Torrent = self.config.torrent_repository.find_first_by(id=movie.torrent_id)
             torrents_list.append(associated_torrent)
+
+        self.logger.info("Movie torrents collected: %s", len(movies))
 
         for associated_torrent in torrents_list:
             path = f"{self.config.torrent_files_location}/{associated_torrent.torrent_id}.torrent"
@@ -57,11 +62,13 @@ class FileProcessing:
                         # print('mock')
                         f.write(response.content)
                     self.__get_torrent_media_file_information(path=path, torrent=associated_torrent)
-                    self.logger.info("Torrent downloaded successfully.")
+                    self.logger.info("Torrent downloaded successfully. %s out of %f",torrents_list.index(associated_torrent), len(torrents_list))
                 else:
                     self.logger.error("Torrent downloaded failed: %s", associated_torrent.torrent_id)
 
-                    time.sleep(1)
+                time.sleep(1)
+            else:
+                self.logger.error("Torrent file already exists: %s", associated_torrent.torrent_id)
 
     def __get_torrent_media_file_information(self, path: str, torrent: Torrent) -> None:
         """a"""

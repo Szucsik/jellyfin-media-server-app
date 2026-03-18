@@ -36,3 +36,4 @@ class ScraperSelectors:
             TORRENT_TEXT_DIV = "div.torrent_txt"
             IMDB_LINKS = "a.infolink"
             TORRENT_DETAIL_LINK = "div.torrent_txt > a[href*='action=details']"
+            TEXT_NOT_FOUND_LIST = '.lista_mini_error'
