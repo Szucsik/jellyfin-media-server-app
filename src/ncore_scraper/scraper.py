@@ -30,6 +30,9 @@ class Scraper:
 
         self.username = username
         self.password = password
+
+        self.logger.info("Scraper initialized for '%s'.", username)
+
         self.logged_in = False
 
         self.torrent_repository = TorrentRepository()
@@ -55,19 +58,22 @@ class Scraper:
         results are found or when `max_pages` is reached.
         """
         if not self.logged_in:
+            self.logger.info("Not logged in. Execute log in section.")
             self.login()
 
         for page in range(1, max_pages + 1):
+            self.logger.info("Navigate to page %s. is_show=%f", page, is_show)
             url = self.config.get_browse_hd_shows_url(page) if is_show else self.config.get_browse_hd_movies_url(page)
             self.__navigate(url)
 
             # Stop if the "no results" indicator is absent (i.e., results exist)
-            if not self.driver.find_elements(By.XPATH, self.selectors.Xpaths.BrowsePage.TEXT_NOT_FOUND_LIST):
+            not_found_text_count = len(self.driver.find_elements(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.TEXT_NOT_FOUND_LIST))
+            if not_found_text_count > 0:
+                self.logger.warning("Not found text detected. Breaking. Text found: %s", not_found_text_count)
                 break
 
+            self.logger.info("Save data to database.")
             self.torrent_repository.save_many(self._get_torrent_data_from_page(is_show=is_show,category="HD"))
-
-        self.close()
 
     def close(self) -> None:
         """Clean up resources (e.g., close the WebDriver)."""
@@ -106,10 +112,18 @@ class Scraper:
         Extract raw torrent data (IMDB links, titles, detail links) from the current page.
         `page` is accepted for future use (e.g., logging) but not used directly.
         """
+        self.logger.debug("Generate empty list of torrents for the page.")
         torrents = self._generate_torrent_stubs(is_show=is_show, category=category)
+
+        self.logger.debug("Extractiong the text divs from the page.")
         torrent_divs = self._get_torrent_text_divs()
+
+        self.logger.debug("Extracting torrent details.")
         torrents = self._populate_torrent_details(torrents, torrent_divs)
+
+        self.logger.debug("Extracting imdb links for the torrents.")
         final = self._populate_imdb_links(torrents, torrent_divs)
+    
         return final
     
     def _get_torrent_text_divs(self) -> list[WebElement]:

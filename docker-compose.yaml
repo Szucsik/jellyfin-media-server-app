@@ -1,7 +1,7 @@
 services:
   media-server-app:
     # build: .
-    image: ghcr.io/szucsik/jellyfin-media-server-app:0.0.1-mvp
+    image: ghcr.io/szucsik/jellyfin-media-server-app:0.0.1-MVP
     container_name: media-server-app
     ports:
       - 8800:8800
