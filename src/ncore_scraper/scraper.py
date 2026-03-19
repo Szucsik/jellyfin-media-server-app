@@ -73,7 +73,7 @@ class Scraper:
                 break
 
             self.logger.info("Save data to database.")
-            self.torrent_repository.save_many(self._get_torrent_data_from_page(is_show=is_show,category="HD"))
+            self.torrent_repository.save_new_only(self._get_torrent_data_from_page(is_show=is_show,category="HD"))
 
     def close(self) -> None:
         """Clean up resources (e.g., close the WebDriver)."""

@@ -171,6 +171,19 @@ class TorrentRepository(BaseRepository):
     def __init__(self, engine=None) -> None:
         super().__init__(Torrent, engine)
 
+    def save_new_only(self, records: list[Torrent]) -> None:
+        """Insert only torrents whose torrent_id is not already in the database."""
+        with get_session(self.engine) as session:
+            existing_ids = set(
+                session.exec(select(Torrent.torrent_id)).all()
+            )
+            new_records = [r for r in records if r.torrent_id not in existing_ids]
+            if new_records:
+                session.add_all(new_records)
+                print(f"Inserted {len(new_records)} new torrents (skipped {len(records) - len(new_records)} duplicates).")
+            else:
+                print(f"No new torrents to insert (all {len(records)} already exist).")
+
     def find_by_imdb_id(self, imdb_id: str) -> Optional[Torrent]:
         """Find a torrent whose imdb_link contains the given IMDb ID (e.g. 'tt123456')."""
         with get_session(self.engine) as session:

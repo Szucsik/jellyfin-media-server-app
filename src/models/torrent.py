@@ -20,6 +20,6 @@ class Torrent(SQLModel, table=True):
     key: str = ""
     is_show: bool = False
     category: str = ""
-    torrent_id: int = -1
+    torrent_id: int = Field(default=-1, unique=True)
     quality: Quality = Quality.UNASSIGNED
     download_link: str = ""
