@@ -1,4 +1,4 @@
-import os
+      import os
 from pathlib import Path
 import re
 import time
@@ -126,6 +126,13 @@ class FileProcessing:
                 files: list[str] = local_file.main_media_files_local_path.split(';')
 
                 show_file_formatted = utils.get_show(files)[0]
+
+                # For shows thats title is a year like 1923, we want to keep the year in the title
+                if show_file_formatted.name == None and show_file_formatted.year != None:
+                    show_file_formatted.name = f"{show_file_formatted.year}"
+                # For shows that have a name and a year, we want to keep the year in the title
+                elif show_file_formatted.year != None:
+                    show_file_formatted.name += f" ({show_file_formatted.year})"
 
                 match = re.search(r"/title/(tt\d+)", associated_torrent.imdb_link)
                 imdb_id = match.group(1)
