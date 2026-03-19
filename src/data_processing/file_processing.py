@@ -142,8 +142,7 @@ class FileProcessing:
                 if target_directory == "":
                     target_directory = Path(symlink_directory_path) / Path(show_file_formatted.name)
                 target_directory.mkdir(parents=True, exist_ok=True)
-                if "Game.of" in associated_torrent.title:
-                    self.logger.debug("Processing Game of Thrones torrent")
+                
                 symlink_paths: list[str] = []
                 original_paths: list[str] = []
                 for s in show_file_formatted.seasons:
