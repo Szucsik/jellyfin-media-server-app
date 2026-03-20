@@ -23,6 +23,9 @@ services:
       - type: bind
         source: ${TORRENT_FILES_LOCATION}
         target: ${TORRENT_FILES_LOCATION}
+      - type: bind
+        source: ${VOLUME_DB_PATH}        # e.g. /home/you/myproject/database.db
+        target: /app/database.db
     environment:
       - NCORE_USERNAME=${NCORE_USERNAME}
       - NCORE_PASSWORD=${NCORE_PASSWORD}
