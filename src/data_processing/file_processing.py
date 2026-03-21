@@ -209,7 +209,13 @@ class FileProcessing:
 
                 # Add the metadata provider to the title
                 match = re.search(r"/title/(tt\d+)", associated_torrent.imdb_link)
-                imdb_id = match.group(1)
+                if match:
+                    imdb_id = match.group(1)
+                else:
+                    # handle the case where no match is found
+                    print(f"No IMDb ID found in: {filename}")
+                    break 
+                
                 title += f" [imdbid={imdb_id}]"
 
                 # Create series directory if not exists
