@@ -213,8 +213,8 @@ class FileProcessing:
                     imdb_id = match.group(1)
                 else:
                     # handle the case where no match is found
-                    print(f"No IMDb ID found in: {file_name}")
-                    break 
+                    self.logger.error("No imdb string found in %s. Torrent id: %r", associated_torrent.title, associated_torrent.torrent_id)
+                    break
                 
                 title += f" [imdbid={imdb_id}]"
 
