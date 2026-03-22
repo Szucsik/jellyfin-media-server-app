@@ -213,7 +213,7 @@ class FileProcessing:
                     imdb_id = match.group(1)
                 else:
                     # handle the case where no match is found
-                    print(f"No IMDb ID found in: {filename}")
+                    print(f"No IMDb ID found in: {file_name}")
                     break 
                 
                 title += f" [imdbid={imdb_id}]"
