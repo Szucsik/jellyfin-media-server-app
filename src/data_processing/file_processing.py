@@ -60,7 +60,7 @@ class FileProcessing:
                 current_tries = 0
                 response_status = False
 
-                while (max_tries < current_tries and not response_status):
+                while (current_tries < max_tries and not response_status):
                     try:
                         response = requests.get(associated_torrent.download_link, headers=headers)
                         response_status = True
