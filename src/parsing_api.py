@@ -41,3 +41,22 @@ def toggle_parsing(pages: int) -> str:
     logger.info("Parsing pipeline finished")
 
     return "Parsing pipeline finished"
+
+
+@app.post("/processing")
+def trigger_processing_stages() -> str:
+    """Start or stop the parsing / file generation pipeline."""
+    config = Configuration()
+    logger = config.logger
+
+    logger.info("Data processor started")
+    data_processor = DataProcessing(config=config)
+    data_processor.process()
+
+    logger.info("File processor started")
+    file_processor = FileProcessing(logger=logger, config=config)
+    file_processor.process()
+
+    logger.info("Processing pipeline finished")
+
+    return "Processing pipeline finished"
