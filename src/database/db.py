@@ -75,9 +75,9 @@ class BaseRepository:
                 session.expunge(record)
             return record
 
-    def get_all(self, limit: int = 1000, offset: int = 0) -> list[T]:
+    def get_all(self, offset: int = 0) -> list[T]:
         with get_session(self.engine) as session:
-            statement = select(self.model).offset(offset).limit(limit)
+            statement = select(self.model).offset(offset)
             results = session.exec(statement).all()
             for r in results:
                 session.expunge(r)

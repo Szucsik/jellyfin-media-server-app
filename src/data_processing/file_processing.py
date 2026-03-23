@@ -214,7 +214,7 @@ class FileProcessing:
                 else:
                     # handle the case where no match is found
                     self.logger.error("No imdb string found in %s. Torrent id: %r", associated_torrent.title, associated_torrent.torrent_id)
-                    break
+                    continue
                 
                 title += f" [imdbid={imdb_id}]"
 
