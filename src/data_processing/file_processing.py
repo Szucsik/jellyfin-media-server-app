@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import re
 import time
+import random
 
 import requests
 import torrentool.api as torrentool
@@ -55,7 +56,21 @@ class FileProcessing:
         for associated_torrent in torrents_list:
             path = f"{self.config.torrent_files_location}/{associated_torrent.torrent_id}.torrent"
             if not os.path.exists(path):
-                response = requests.get(associated_torrent.download_link, headers=headers)
+                max_tries = 10
+                current_tries = 0
+                response_status = False
+
+                while (max_tries < current_tries and not response_status):
+                    try:
+                        response = requests.get(associated_torrent.download_link, headers=headers)
+                        response_status = True
+                        time.sleep(random.randrange(1, 3))
+                    except:
+                        current_tries += 1
+                        time.sleep(random.randrange(1, 3))
+
+                if max_tries == current_tries:
+                    continue
 
                 if response.status_code == 200:
                     with open(path, "wb") as f:
