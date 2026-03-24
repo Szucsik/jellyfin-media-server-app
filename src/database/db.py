@@ -125,6 +125,7 @@ class BaseRepository:
             session.expunge(record)
             return record
 
+
     def save_many(self, records: list[T]) -> None:
         """Bulk insert — efficient for large batches."""
         with get_session(self.engine) as session:
@@ -223,8 +224,28 @@ class ShowRepository(BaseRepository):
         super().__init__(Show, engine)
 
 
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
 class LocalFilesRepository(BaseRepository):
-    """Local files-specific queries on top of the generic CRUD layer."""
 
     def __init__(self, engine=None) -> None:
         super().__init__(LocalFileInformation, engine)
+
+    def save_if_new(self, record: LocalFileInformation) -> None:
+        """
+        Insert the record only if its torrent_id is not already present.
+        Silently does nothing on a duplicate torrent_id.
+        """
+        with get_session(self.engine) as session:
+            stmt = (
+                sqlite_insert(LocalFileInformation)
+                .values(
+                    torrent_id=record.torrent_id,
+                    torrent_file_local_path=record.torrent_file_local_path,
+                    main_media_files_local_path=record.main_media_files_local_path,
+                    original_file_path=record.original_file_path,
+                    symlink_path=record.symlink_path,
+                )
+                .on_conflict_do_nothing(index_elements=["torrent_id"])
+            )
+            session.exec(stmt)

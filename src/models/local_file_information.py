@@ -1,9 +1,13 @@
 from typing import Optional
-from sqlalchemy import Column, ForeignKey, Integer
+from sqlalchemy import Column, ForeignKey, Integer, UniqueConstraint
 from sqlmodel import SQLModel, Field
 
 
 class LocalFileInformation(SQLModel, table=True):
+    __table_args__ = (
+        UniqueConstraint("torrent_id", name="uq_local_file_torrent_id"),
+    )
+
     id: Optional[int] = Field(
         default=None,
         sa_column=Column(Integer, primary_key=True, autoincrement=True)

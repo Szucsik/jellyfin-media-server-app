@@ -80,7 +80,6 @@ class FileProcessing:
                     with open(path, "wb") as f:
                         # print('mock')
                         f.write(response.content)
-                    self.__get_torrent_media_file_information(path=path, torrent=associated_torrent)
                     self.logger.info("Torrent downloaded successfully. %s out of %s",torrents_list.index(associated_torrent), len(torrents_list))
                 else:
                     self.logger.error("Torrent downloaded failed: %s", associated_torrent.torrent_id)
@@ -88,12 +87,17 @@ class FileProcessing:
             else:
                 self.logger.error("Torrent file already exists:%s | %s", associated_torrent.title, associated_torrent.torrent_id)
 
+            self.__get_torrent_media_file_information(path=path, torrent=associated_torrent)
+
     def __get_torrent_media_file_information(self, path: str, torrent: Torrent) -> None:
         """a"""
         local_file_information = LocalFileInformation(
             torrent_id=torrent.id,
             torrent_file_local_path=path
         )
+
+        self.logger.error("Procesing torrent file: %s", torrent.title)
+
         torrent_information = torrentool.Torrent.from_file(path)
 
         if torrent.is_show:
