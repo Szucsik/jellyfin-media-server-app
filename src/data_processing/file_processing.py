@@ -96,7 +96,7 @@ class FileProcessing:
             torrent_file_local_path=path
         )
 
-        self.logger.error("Procesing torrent file: %s", torrent.tit)
+        self.logger.info("Procesing torrent file: %s", torrent.title)
 
         torrent_information = torrentool.Torrent.from_file(path)
 
