@@ -87,7 +87,7 @@ class FileProcessing:
                 self.logger.info("Torrent downloaded successfully. %s out of %s", torrents_list.index(associated_torrent), len(torrents_list))
 
             else:
-                self.logger.error("Torrent file already exists:%s | %s", associated_torrent.title, associated_torrent.torrent_id)
+                self.logger.info("Torrent file already exists:%s | %s", associated_torrent.title, associated_torrent.torrent_id)
 
             self.__get_torrent_media_file_information(path=path, torrent=associated_torrent)
 
@@ -100,7 +100,17 @@ class FileProcessing:
 
         self.logger.info("Procesing torrent file: %s", torrent.title)
 
-        torrent_information = torrentool.Torrent.from_file(path)
+        try:
+            torrent_information = torrentool.Torrent.from_file(path)
+        except:
+            self.logger.error("Couldn't open torrent file. Removing torrent %s %s", torrent.title, torrent.torrent_id)
+            if torrent.is_show:
+                self.config.show_season_repository.delete_by_torrent_id(torrent_id=torrent.id)
+            else:
+                self.config.movie_repository.delete_by_torrent_id(torrent_id=torrent.id)
+
+            self.config.torrent_repository.delete_by_id(torrent.id)
+            return None
 
         if torrent.is_show:
             target_file = ""

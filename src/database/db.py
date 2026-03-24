@@ -202,6 +202,16 @@ class MovieRepository(BaseRepository):
     def __init__(self, engine=None) -> None:
         super().__init__(Movie, engine)
 
+    def delete_by_torrent_id(self, torrent_id: int) -> bool:
+        """Delete the movie associated with the given torrent_id. Returns True if deleted, False if not found."""
+        with get_session(self.engine) as session:
+            statement = select(self.model).where(self.model.torrent_id == torrent_id)
+            record = session.exec(statement).first()
+            if record is None:
+                return False
+            session.delete(record)
+            return True
+
 class ShowSeasonsRepository(BaseRepository):
     """Show season-specific queries on top of the generic CRUD layer."""
 
@@ -216,6 +226,16 @@ class ShowSeasonsRepository(BaseRepository):
             for r in results:
                 session.expunge(r)
             return results
+
+    def delete_by_torrent_id(self, torrent_id: int) -> bool:
+        """Delete the show season associated with the given torrent_id. Returns True if deleted, False if not found."""
+        with get_session(self.engine) as session:
+            statement = select(self.model).where(self.model.torrent_id == torrent_id)
+            record = session.exec(statement).first()
+            if record is None:
+                return False
+            session.delete(record)
+            return True
 
 class ShowRepository(BaseRepository):
     """Show-specific queries on top of the generic CRUD layer."""
