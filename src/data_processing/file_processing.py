@@ -123,7 +123,7 @@ class FileProcessing:
 
         local_file_information.main_media_files_local_path = target_file
 
-        self.config.local_files_repository.save(local_file_information)
+        self.config.local_files_repository.save_if_new(local_file_information)
 
 
 
