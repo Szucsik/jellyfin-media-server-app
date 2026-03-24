@@ -96,7 +96,7 @@ class FileProcessing:
             torrent_file_local_path=path
         )
 
-        self.logger.error("Procesing torrent file: %s", torrent.title)
+        self.logger.error("Procesing torrent file: %s", torrent.tit)
 
         torrent_information = torrentool.Torrent.from_file(path)
 
@@ -168,7 +168,7 @@ class FileProcessing:
                 symlink_paths: list[str] = []
                 original_paths: list[str] = []
                 for s in show_file_formatted.seasons:
-                    season_path = Path(target_directory) / Path(str(s.number))
+                    season_path = Path(target_directory) / Path(f"Season {str(s.number)}")
                     season_path.mkdir(parents=True, exist_ok=True)
 
                     for e in s.episodes:
