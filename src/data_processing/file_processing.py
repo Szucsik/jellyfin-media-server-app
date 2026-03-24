@@ -144,6 +144,7 @@ class FileProcessing:
         movies: list[Movie] = self.config.movie_repository.get_all()
         shows: list[Show] = self.config.show_repository.get_all()
 
+        self.logger.info("Starting to generate symlink placeholders")
         self.generate_symlinks_for_movies(movies)
         self.generate_symlinks_for_shows(shows)
 
@@ -153,11 +154,20 @@ class FileProcessing:
         for show in shows:
             target_directory = ""
             seasons = self.config.show_season_repository.get_all_seasons_for_show(show.id)
+
+            self.logger.info("Processing show: %s", show.id)
             for season in seasons:
                 associated_torrent: Torrent = self.config.torrent_repository.find_first_by(id=season.torrent_id)
+
+                self.logger.info("Processing season %s", associated_torrent.title)
                 
                 local_file: LocalFileInformation = self.config.local_files_repository.find_first_by(torrent_id=associated_torrent.id)
                 files: list[str] = local_file.main_media_files_local_path.split(';')
+
+                show_file_formatted_array = utils.get_show(files)
+
+                if len(show_file_formatted_array) == 0:
+                    continue
 
                 show_file_formatted = utils.get_show(files)[0]
 
@@ -201,6 +211,9 @@ class FileProcessing:
         year_pattern = re.compile(r"(19\d{2}|20\d{2})")
         for movie in movies:
             associated_torrent: Torrent = self.config.torrent_repository.find_first_by(id=movie.torrent_id)
+
+            self.logger.info("Procesing movie: %s", associated_torrent.title)
+
             local_file: LocalFileInformation = self.config.local_files_repository.find_first_by(torrent_id=associated_torrent.id)
             files: list[str] = local_file.main_media_files_local_path.split(';')
 
