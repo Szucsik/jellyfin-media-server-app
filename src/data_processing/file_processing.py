@@ -61,28 +61,30 @@ class FileProcessing:
                 current_tries = 0
                 response_status = False
 
-                while (current_tries < max_tries and not response_status):
+                while current_tries < max_tries:
                     try:
                         self.logger.info("Trying to download")
                         response = requests.get(associated_torrent.download_link, headers=headers)
-                        response_status = True
+                        if response.status_code == 200:
+                            response_status = True
+                            break
+                        else:
+                            self.logger.info("Non-200 response (%s), attempt: %s/%s", response.status_code, current_tries, max_tries)
                     except:
-                        wait_time = 5 * current_tries
-                        self.logger.info("Download failed, attempt: %s/%s Waiting: %s", current_tries, max_tries, wait_time)
-                        current_tries += 1
-                        time.sleep(wait_time)
+                        self.logger.info("Download failed, attempt: %s/%s", current_tries, max_tries)
 
-                if max_tries == current_tries:
+                    current_tries += 1
+                    wait_time = 5 * current_tries
+                    self.logger.info("Waiting: %s seconds", wait_time)
+                    time.sleep(wait_time)
+
+                if not response_status:
                     self.logger.error("Couldn't download torrent: %s", associated_torrent.title)
-                    continue
+                    raise Exception(f"Couldn't download torrent: {associated_torrent.title}")
 
-                if response.status_code == 200:
-                    with open(path, "wb") as f:
-                        # print('mock')
-                        f.write(response.content)
-                    self.logger.info("Torrent downloaded successfully. %s out of %s",torrents_list.index(associated_torrent), len(torrents_list))
-                else:
-                    self.logger.error("Torrent downloaded failed: %s", associated_torrent.torrent_id)
+                with open(path, "wb") as f:
+                    f.write(response.content)
+                self.logger.info("Torrent downloaded successfully. %s out of %s", torrents_list.index(associated_torrent), len(torrents_list))
 
             else:
                 self.logger.error("Torrent file already exists:%s | %s", associated_torrent.title, associated_torrent.torrent_id)
