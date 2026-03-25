@@ -111,13 +111,14 @@ class TorrentSyncService:
 
         for symlink_str, original_file in zip(symlink_paths, original_files):
             self.logger.info("Original save path %s", save_path)
+            original_downloaded_file = Path(save_path) / original_file
             save_path = save_path.replace(self.config.downloaded_directory, self.config.downloaded_target_directory)
             self.logger.info("Containerized save path %s", save_path)
             downloaded_file = Path(save_path) / original_file
             symlink = Path(symlink_str)
 
-            if not downloaded_file.exists():
-                self.logger.warning("Downloaded file not found: %s", downloaded_file)
+            if not original_downloaded_file.exists():
+                self.logger.warning("Downloaded file not found: %s", original_downloaded_file)
                 continue
 
             if symlink.is_symlink():
