@@ -33,6 +33,7 @@ class Configuration:
     symlink_movies_directory = os.getenv("VOLUME_MOVIE_DIR")
     placeholders_directory = os.getenv("VOLUME_PLACEHOLDER_TARGET_DIR")
     downloaded_directory = os.getenv("VOLUME_DOWNLOADED_DIR")
+    downloaded_target_directory = os.getenv("VOLUME_DOWNLOADED_TARGET_DIR")
 
     jellyfin_url = os.getenv("JELLYFIN_URL")
     jellyfin_user_id = os.getenv("JELLYFIN_USER_ID")

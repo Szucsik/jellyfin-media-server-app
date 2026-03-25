@@ -110,6 +110,7 @@ class TorrentSyncService:
             return
 
         for symlink_str, original_file in zip(symlink_paths, original_files):
+            save_path.replace(self.config.downloaded_directory, self.config.downloaded_target_directory)
             downloaded_file = Path(save_path) / original_file
             symlink = Path(symlink_str)
 
