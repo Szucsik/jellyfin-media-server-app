@@ -98,7 +98,7 @@ class FileProcessing:
             torrent_file_local_path=path
         )
 
-        self.logger.info("Procesing torrent file: %s", torrent.title)
+        self.logger.info("Processing torrent file: %s", torrent.title)
 
         try:
             torrent_information = torrentool.Torrent.from_file(path)
@@ -212,7 +212,7 @@ class FileProcessing:
         for movie in movies:
             associated_torrent: Torrent = self.config.torrent_repository.find_first_by(id=movie.torrent_id)
 
-            self.logger.info("Procesing movie: %s", associated_torrent.title)
+            self.logger.info("Processing movie: %s", associated_torrent.title)
 
             local_file: LocalFileInformation = self.config.local_files_repository.find_first_by(torrent_id=associated_torrent.id)
             files: list[str] = local_file.main_media_files_local_path.split(';')
