@@ -51,6 +51,7 @@ class JellyfinApi:
             "IncludeItemTypes": types_param,
             "Recursive": "true",
             "Fields": "UserData,Id,Name,Type,ProductionYear,SeriesName,ParentIndexNumber,IndexNumber,MediaSources,Path",
+            "Filters": "IsPlayed",
             # "Limit": 5000,
         }
 
