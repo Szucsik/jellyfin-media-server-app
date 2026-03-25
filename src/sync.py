@@ -10,7 +10,7 @@ from jellyfin_api.bittorrentapi import BittorrentAPI
 from models.torrent import Torrent
 from models.local_file_information import LocalFileInformation
 
-IMDB_PATH_PATTERN = re.compile(r"\[imdbid=(tt\d+)\]")
+IMDB_PATH_PATTERN = re.compile(r"\[imdbid-(tt\d+)\]")
 
 
 def extract_imdb_id(path: str) -> Optional[str]:
