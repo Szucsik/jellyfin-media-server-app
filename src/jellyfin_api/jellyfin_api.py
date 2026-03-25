@@ -56,7 +56,7 @@ class JellyfinApi:
         }
 
         try:
-            resp = requests.get(url, headers=self._headers(), params=params, timeout=30)
+            resp = requests.get(url, headers=self._headers(), params=params, timeout=300)
             resp.raise_for_status()
             data = resp.json()
             return data.get("Items", [])
