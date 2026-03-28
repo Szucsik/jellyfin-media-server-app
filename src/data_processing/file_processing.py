@@ -25,6 +25,46 @@ class FileProcessing:
         """a"""
         self.__download_torrent_files()
         self.__generate_symlink_to_placeholders()
+
+    def download_torrent_by_id(self, id: int):
+        associated_torrent: Torrent = self.config.torrent_repository.find_first_by(id=id)
+        path = f"{self.config.torrent_files_location}/{associated_torrent.torrent_id}.torrent"
+        if not os.path.exists(path):
+            self.logger.info("Starting to download torrent: %s", associated_torrent.title)
+            max_tries = 100
+            current_tries = 0
+            response_status = False
+
+            while current_tries < max_tries:
+                try:
+                    self.logger.info("Trying to download")
+                    response = requests.get(associated_torrent.download_link, headers=headers)
+                    if response.status_code == 200:
+                        response_status = True
+                        break
+                    else:
+                        self.logger.info("Non-200 response (%s), attempt: %s/%s", response.status_code, current_tries, max_tries)
+                except:
+                    self.logger.info("Download failed, attempt: %s/%s", current_tries, max_tries)
+
+                current_tries += 1
+                wait_time = 5 * current_tries
+                self.logger.info("Waiting: %s seconds", wait_time)
+                time.sleep(wait_time)
+
+            if not response_status:
+                self.logger.error("Couldn't download torrent: %s", associated_torrent.title)
+                raise Exception(f"Couldn't download torrent: {associated_torrent.title}")
+
+            with open(path, "wb") as f:
+                f.write(response.content)
+            self.logger.info("Torrent downloaded successfully. %s out of %s", torrents_list.index(associated_torrent), len(torrents_list))
+
+        else:
+            self.logger.info("Torrent file already exists:%s | %s", associated_torrent.title, associated_torrent.torrent_id)
+
+        self.__get_torrent_media_file_information(path=path, torrent=associated_torrent)
+
     
     def __download_torrent_files(self):
         """a"""
