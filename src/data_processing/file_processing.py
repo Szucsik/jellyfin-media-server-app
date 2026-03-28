@@ -27,7 +27,7 @@ class FileProcessing:
         self.__generate_symlink_to_placeholders()
 
     def download_torrent_by_id(self, id: int):
-        associated_torrent: Torrent = self.config.torrent_repository.find_first_by(id=id)
+        associated_torrent: Torrent = self.config.torrent_repository.find_first_by(torrent_id=id)
         path = f"{self.config.torrent_files_location}/{associated_torrent.torrent_id}.torrent"
         if not os.path.exists(path):
             self.logger.info("Starting to download torrent: %s", associated_torrent.title)
