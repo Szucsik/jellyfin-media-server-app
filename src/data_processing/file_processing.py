@@ -6,6 +6,7 @@ import random
 
 import requests
 import torrentool.api as torrentool
+import httpx
 
 from config import Configuration
 from data_processing.utils.file_processing_utils import FileProcessingUtils
@@ -13,6 +14,7 @@ from models.local_file_information import LocalFileInformation
 from models.movie import Movie
 from models.show import Show
 from models.torrent import Torrent
+from ncore_scraper.config import ScraperConfig
 
 
 class FileProcessing:
@@ -21,9 +23,17 @@ class FileProcessing:
         self.logger = logger
         self.config = config
 
-    def process(self):
+        self.client: httpx.AsyncClient = httpx.AsyncClient(
+            headers={"User-Agent": "python ncoreparser"}, timeout=30, follow_redirects=True
+        )
+
+        self.client.cookies.clear()
+        self.scraper_config = ScraperConfig()
+
+    async def process(self):
         """a"""
-        self.__download_torrent_files()
+
+        await self.__download_torrent_files()
         self.__generate_symlink_to_placeholders()
 
     def download_torrent_by_id(self, id: int):
@@ -66,7 +76,7 @@ class FileProcessing:
         self.__get_torrent_media_file_information(path=path, torrent=associated_torrent)
 
     
-    def __download_torrent_files(self):
+    async def __download_torrent_files(self):
         """a"""
         self.logger.info("Download torrents process started")
         
@@ -99,17 +109,11 @@ class FileProcessing:
                 self.logger.info("Starting to download torrent: %s", associated_torrent.title)
                 max_tries = 100
                 current_tries = 0
-                response_status = False
+                status_code = 0
 
                 while current_tries < max_tries:
                     try:
-                        self.logger.info("Trying to download")
-                        response = requests.get(associated_torrent.download_link, headers=headers)
-                        if response.status_code == 200:
-                            response_status = True
-                            break
-                        else:
-                            self.logger.info("Non-200 response (%s), attempt: %s/%s", response.status_code, current_tries, max_tries)
+                        status_code = await self.__download_torrent_file(associated_torrent, path)
                     except:
                         self.logger.info("Download failed, attempt: %s/%s", current_tries, max_tries)
 
@@ -118,18 +122,54 @@ class FileProcessing:
                     self.logger.info("Waiting: %s seconds", wait_time)
                     time.sleep(wait_time)
 
-                if not response_status:
-                    self.logger.error("Couldn't download torrent: %s", associated_torrent.title)
-                    raise Exception(f"Couldn't download torrent: {associated_torrent.title}")
+                    if status_code != 200:
+                        self.logger.error("Couldn't download torrent: %s", associated_torrent.title)
+                        raise Exception(f"Couldn't download torrent: {associated_torrent.title}")
+                    else:
+                        break;
 
-                with open(path, "wb") as f:
-                    f.write(response.content)
                 self.logger.info("Torrent downloaded successfully. %s out of %s", torrents_list.index(associated_torrent), len(torrents_list))
 
             else:
                 self.logger.info("Torrent file already exists:%s | %s", associated_torrent.title, associated_torrent.torrent_id)
 
             self.__get_torrent_media_file_information(path=path, torrent=associated_torrent)
+
+    async def __download_torrent_file(self, torrent: Torrent, target_path: str) -> int:
+        if await self.__is_logged_in():
+            return 200
+
+        try:
+            login_data = {"nev": self.config.username, "pass": self.config.password, "set_lang": "hu", "submitted": "1", "ne_leptessen_ki": "1"}
+
+            r = await self.client.post(self.scraper_config.login_url, data=login_data)
+        except Exception as e:
+            self.logger()
+            raise Exception(f"Error while performing post method to url '{torrent.download_link}'.") from e
+
+        if r.url != self.scraper_config.home_url or "<title>nCore</title>" in r.text:
+            raise Exception("Can't login to download torrent files.")
+
+        try:
+            content = await self.client.get(torrent.download_link)
+        except Exception as e:
+            raise Exception(f"Error while downloading torrent. Url: '{torrent.download_link}'. {e}") from e
+
+        if os.path.exists(torrent.download_link):
+            return 200
+
+        with open(target_path, "wb") as fh:
+            fh.write(content.content)
+
+        return content.status_code
+
+        
+
+    async def __is_logged_in(self):
+        r = await self.client.get(self.scraper_config.home_url)
+        if "login.php" in str(r.url) or "<title>nCore</title>" in r.text:
+            return False
+        return True
 
     def __get_torrent_media_file_information(self, path: str, torrent: Torrent) -> None:
         """a"""
@@ -177,8 +217,6 @@ class FileProcessing:
 
         self.config.local_files_repository.save_if_new(local_file_information)
 
-
-
     def __generate_symlink_to_placeholders(self) -> None:
         """a"""
         movies: list[Movie] = self.config.movie_repository.get_all()
@@ -187,7 +225,6 @@ class FileProcessing:
         self.logger.info("Starting to generate symlink placeholders")
         self.generate_symlinks_for_movies(movies)
         self.generate_symlinks_for_shows(shows)
-
 
     def generate_symlinks_for_shows(self, shows: list[Show]):
         utils = FileProcessingUtils()

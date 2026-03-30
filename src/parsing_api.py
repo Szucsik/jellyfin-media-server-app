@@ -11,7 +11,7 @@ from ncore_scraper.scraper import Scraper
 app = FastAPI(title="Parsing & File Generation API")
 
 @app.post("/parsing")
-def toggle_parsing(pages: int) -> str:
+async def toggle_parsing(pages: int) -> str:
     """Start or stop the parsing / file generation pipeline."""
     config = Configuration()
     logger = config.logger
@@ -36,7 +36,7 @@ def toggle_parsing(pages: int) -> str:
 
     logger.info("File processor started")
     file_processor = FileProcessing(logger=logger, config=config)
-    file_processor.process()
+    await file_processor.process()
 
     logger.info("Parsing pipeline finished")
 
