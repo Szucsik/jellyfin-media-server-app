@@ -117,16 +117,20 @@ class FileProcessing:
                     except:
                         self.logger.info("Download failed, attempt: %s/%s", current_tries, max_tries)
 
+                    if status_code != 200:
+                        self.logger.error("Couldn't download torrent: %s", associated_torrent.title)
+                       
+                    else:
+                        break;
+
                     current_tries += 1
                     wait_time = 5 * current_tries
                     self.logger.info("Waiting: %s seconds", wait_time)
                     time.sleep(wait_time)
 
-                    if status_code != 200:
-                        self.logger.error("Couldn't download torrent: %s", associated_torrent.title)
-                        raise Exception(f"Couldn't download torrent: {associated_torrent.title}")
-                    else:
-                        break;
+                if current_tries == max_tries:
+                     raise Exception(f"Couldn't download torrent: {associated_torrent.title}")
+
 
                 self.logger.info("Torrent downloaded successfully. %s out of %s", torrents_list.index(associated_torrent), len(torrents_list))
 
