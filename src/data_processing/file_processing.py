@@ -84,11 +84,6 @@ class FileProcessing:
         movies: list[Movie] = self.config.movie_repository.get_all()
         shows: list[Show] = self.config.show_repository.get_all()
 
-        headers = {
-            "User-Agent": "Mozilla/5.0",
-            "Referer": "https://ncore.pro/"
-        }
-
         torrents_list: list[Torrent] = []
 
         for show in shows:
@@ -115,8 +110,8 @@ class FileProcessing:
                 while current_tries < max_tries:
                     try:
                         status_code = await self.__download_torrent_file(associated_torrent, path)
-                    except:
-                        self.logger.info("Download failed, attempt: %s/%s", current_tries, max_tries)
+                    except Exception as e:
+                        self.logger.error("Download failed, attempt: %s/%s %s", current_tries, max_tries, e)
 
                     if status_code != 200:
                         self.logger.error("Couldn't download torrent: %s", associated_torrent.title)
@@ -143,6 +138,7 @@ class FileProcessing:
     async def __download_torrent_file(self, torrent: Torrent, target_path: str) -> int:
         while not await self.__is_logged_in():
             try:
+                self.logger.info("HTTPX not logged in. Try to log in.")
                 login_data = {"nev": self.config.username, "pass": self.config.password, "set_lang": "hu", "submitted": "1", "ne_leptessen_ki": "1"}
 
                 r = await self.client.post(self.scraper_config.login_url, data=login_data)
@@ -154,14 +150,17 @@ class FileProcessing:
             raise Exception("Can't login to download torrent files.")
 
         try:
+            self.logger.info("HTTPX client will start to download this torrent: %s", torrent.download_link)
             content = await self.client.get(torrent.download_link)
         except Exception as e:
+            self.logger.error("Error while downloading torrent. Url: %s", torrent.download_link)
             raise Exception(f"Error while downloading torrent. Url: '{torrent.download_link}'. {e}") from e
 
         if os.path.exists(target_path):
             return 200
 
         with open(target_path, "wb") as fh:
+            self.logger.info("Writing torrent file to target location: %s", target_path)
             fh.write(content.content)
 
         return content.status_code
