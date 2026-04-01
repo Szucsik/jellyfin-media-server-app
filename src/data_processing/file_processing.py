@@ -146,9 +146,6 @@ class FileProcessing:
                 self.logger.error("Error while performing post method to url '%s'.", torrent.download_link)
                 await asyncio.sleep(10)
 
-        if r.url != self.scraper_config.home_url or "<title>nCore</title>" in r.text:
-            raise Exception("Can't login to download torrent files.")
-
         try:
             self.logger.info("HTTPX client will start to download this torrent: %s", torrent.download_link)
             content = await self.client.get(torrent.download_link)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Launch both FastAPI applications (parsing + sync) in a single process."""
 
-import uvicorn
+import uvicorn 
 from database.db import init_db
 import multiprocessing
 

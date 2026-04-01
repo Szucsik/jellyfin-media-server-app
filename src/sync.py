@@ -60,7 +60,7 @@ class TorrentSyncService:
 
         self.logger.info("Played: %s (IMDb: %s)", label, imdb_id)
 
-        torrent: Optional[Torrent] = self.config.torrent_repository.find_by_imdb_id(imdb_id)
+        torrent: Optional[Torrent] = self.config.torrent_repository.find_registered_media_by_imdb_id(imdb_id)
         if not torrent:
             self.logger.warning("No torrent in DB for IMDb ID %s", imdb_id)
             return

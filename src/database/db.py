@@ -2,9 +2,10 @@ from contextlib import contextmanager
 from typing import Generator, Optional, Type, TypeVar
 
 from sqlmodel import Session, SQLModel, create_engine, select
+from sqlalchemy import exists, or_
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from models.local_file_information import LocalFileInformation
-from models.movie import Movie
 from models.movie import Movie
 from models.show import Show
 from models.show_season import ShowSeason
@@ -196,6 +197,24 @@ class TorrentRepository(BaseRepository):
                 session.expunge(record)
             return record
 
+    def find_registered_media_by_imdb_id(self, imdb_id: str) -> Optional[Torrent]:
+        """Find a torrent whose imdb_link contains the given IMDb ID and is linked to a Movie or ShowSeason."""
+        with get_session(self.engine) as session:
+            statement = (
+                select(self.model)
+                .where(self.model.imdb_link.contains(imdb_id))
+                .where(
+                    or_(
+                        exists().where(Movie.torrent_id == self.model.id),
+                        exists().where(ShowSeasons.torrent_id == self.model.id),
+                    )
+                )
+            )
+            record = session.exec(statement).first()
+            if record:
+                session.expunge(record)
+            return record
+
 class MovieRepository(BaseRepository):
     """Movie-specific queries on top of the generic CRUD layer."""
 
@@ -217,7 +236,6 @@ class ShowSeasonsRepository(BaseRepository):
 
     def __init__(self, engine=None) -> None:
         super().__init__(ShowSeason, engine)
-
 
     def get_all_seasons_for_show(self, show_id: int) -> list[ShowSeason]:
         with get_session(self.engine) as session:
@@ -242,9 +260,6 @@ class ShowRepository(BaseRepository):
 
     def __init__(self, engine=None) -> None:
         super().__init__(Show, engine)
-
-
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 class LocalFilesRepository(BaseRepository):
 
