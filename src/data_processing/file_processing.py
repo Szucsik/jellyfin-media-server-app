@@ -7,6 +7,7 @@ import random
 import requests
 import torrentool.api as torrentool
 import httpx
+import asyncio
 
 from config import Configuration
 from data_processing.utils.file_processing_utils import FileProcessingUtils
@@ -36,7 +37,7 @@ class FileProcessing:
         await self.__download_torrent_files()
         self.__generate_symlink_to_placeholders()
 
-    def download_torrent_by_id(self, id: int):
+    async def download_torrent_by_id(self, id: int):
         associated_torrent: Torrent = self.config.torrent_repository.find_first_by(torrent_id=id)
         path = f"{self.config.torrent_files_location}/{associated_torrent.torrent_id}.torrent"
         if not os.path.exists(path):
@@ -60,7 +61,7 @@ class FileProcessing:
                 current_tries += 1
                 wait_time = 5 * current_tries
                 self.logger.info("Waiting: %s seconds", wait_time)
-                time.sleep(wait_time)
+                await asyncio.sleep(wait_time)
 
             if not response_status:
                 self.logger.error("Couldn't download torrent: %s", associated_torrent.title)
@@ -126,7 +127,7 @@ class FileProcessing:
                     current_tries += 1
                     wait_time = 5 * current_tries
                     self.logger.info("Waiting: %s seconds", wait_time)
-                    time.sleep(wait_time)
+                    await asyncio.sleep(wait_time)
 
                 if current_tries == max_tries:
                      raise Exception(f"Couldn't download torrent: {associated_torrent.title}")
@@ -140,16 +141,14 @@ class FileProcessing:
             self.__get_torrent_media_file_information(path=path, torrent=associated_torrent)
 
     async def __download_torrent_file(self, torrent: Torrent, target_path: str) -> int:
-        if await self.__is_logged_in():
-            return 200
+        while not await self.__is_logged_in():
+            try:
+                login_data = {"nev": self.config.username, "pass": self.config.password, "set_lang": "hu", "submitted": "1", "ne_leptessen_ki": "1"}
 
-        try:
-            login_data = {"nev": self.config.username, "pass": self.config.password, "set_lang": "hu", "submitted": "1", "ne_leptessen_ki": "1"}
-
-            r = await self.client.post(self.scraper_config.login_url, data=login_data)
-        except Exception as e:
-            self.logger()
-            raise Exception(f"Error while performing post method to url '{torrent.download_link}'.") from e
+                r = await self.client.post(self.scraper_config.login_url, data=login_data)
+            except Exception as e:
+                self.logger.error("Error while performing post method to url '%s'.", torrent.download_link)
+                await asyncio.sleep(10)
 
         if r.url != self.scraper_config.home_url or "<title>nCore</title>" in r.text:
             raise Exception("Can't login to download torrent files.")
@@ -159,7 +158,7 @@ class FileProcessing:
         except Exception as e:
             raise Exception(f"Error while downloading torrent. Url: '{torrent.download_link}'. {e}") from e
 
-        if os.path.exists(torrent.download_link):
+        if os.path.exists(target_path):
             return 200
 
         with open(target_path, "wb") as fh:

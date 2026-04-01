@@ -44,7 +44,7 @@ async def toggle_parsing(pages: int) -> str:
 
 
 @app.post("/processing")
-def trigger_processing_stages() -> str:
+async def trigger_processing_stages() -> str:
     """Start or stop the parsing / file generation pipeline."""
     config = Configuration()
     logger = config.logger
@@ -55,21 +55,21 @@ def trigger_processing_stages() -> str:
 
     logger.info("File processor started")
     file_processor = FileProcessing(logger=logger, config=config)
-    file_processor.process()
+    await file_processor.process()
 
     logger.info("Processing pipeline finished")
 
     return "Processing pipeline finished"
 
 @app.post("/download-torrent")
-def download_torrents() -> str:
+async def download_torrents() -> str:
     """Start downloading torrent by"""
     config = Configuration()
     logger = config.logger
 
     logger.info("Torrents download processor started")
     file_processor = FileProcessing(logger=logger, config=config)
-    file_processor.process()
+    await file_processor.process()
 
     logger.info("Torrents download pipeline finished")
 
