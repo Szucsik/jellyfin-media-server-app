@@ -206,7 +206,7 @@ class TorrentRepository(BaseRepository):
                 .where(
                     or_(
                         exists().where(Movie.torrent_id == self.model.id),
-                        exists().where(ShowSeasons.torrent_id == self.model.id),
+                        exists().where(ShowSeason.torrent_id == self.model.id),
                     )
                 )
             )
