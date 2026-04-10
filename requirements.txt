@@ -7,3 +7,4 @@ requests
 qbittorrent-api
 fastapi
 uvicorn
+httpx
