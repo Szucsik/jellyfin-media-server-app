@@ -1,6 +1,3 @@
-import asyncio
-import threading
-
 from fastapi import FastAPI
 
 from config import Configuration
@@ -9,13 +6,12 @@ from data_processing.file_processing import FileProcessing
 from ncore_scraper.scraper import Scraper
 
 app = FastAPI(title="Parsing & File Generation API")
+config = Configuration()
+logger = config.logger
 
 @app.post("/parsing")
 async def toggle_parsing(pages: int) -> str:
     """Start or stop the parsing / file generation pipeline."""
-    config = Configuration()
-    logger = config.logger
-
     logger.info("Parsing pipeline started")
 
     scraper = Scraper(username=config.username, password=config.password)
@@ -46,9 +42,6 @@ async def toggle_parsing(pages: int) -> str:
 @app.post("/processing")
 async def trigger_processing_stages() -> str:
     """Start or stop the parsing / file generation pipeline."""
-    config = Configuration()
-    logger = config.logger
-
     logger.info("Data processor started")
     data_processor = DataProcessing(config=config)
     data_processor.process()
@@ -64,9 +57,6 @@ async def trigger_processing_stages() -> str:
 @app.post("/download-torrent")
 async def download_torrents() -> str:
     """Start downloading torrent by"""
-    config = Configuration()
-    logger = config.logger
-
     logger.info("Torrents download processor started")
     file_processor = FileProcessing(logger=logger, config=config)
     await file_processor.process()

@@ -4,12 +4,11 @@ import time
 import logging
 from difflib import SequenceMatcher
 
+from collections import Counter
+
 from selenium import webdriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.by import By
-from collections import Counter
-
-import torrentool.api as torrentool
 
 from database.db import TorrentRepository
 from models.torrent import Quality, Torrent

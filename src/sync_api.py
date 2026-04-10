@@ -12,14 +12,14 @@ _lock = threading.Lock()
 _running = False
 _task_thread: threading.Thread | None = None
 _stop_event = asyncio.Event()
-
+_config = Configuration()
 
 def _run_sync_loop() -> None:
-    global _running
-
+    global _running, _config
+    logger = _config.logger
+   
     try:
         config = Configuration()
-        logger = config.logger
         logger.info("Sync service started")
 
         loop = asyncio.new_event_loop()
@@ -40,8 +40,7 @@ def _run_sync_loop() -> None:
         loop.run_until_complete(_guarded_run())
         logger.info("Sync service stopped")
     except Exception as exc:
-        import logging
-        logging.getLogger(__name__).error("Sync service error: %s", exc)
+        logger.error("Sync service error: %s", exc)
     finally:
         with _lock:
             _running = False
@@ -50,7 +49,7 @@ def _run_sync_loop() -> None:
 @app.post("/sync")
 def toggle_sync(enabled: bool) -> dict:
     """Start or stop the Jellyfin & BitTorrent sync loop."""
-    global _running, _task_thread
+    global _running, _task_thread, _config
 
     with _lock:
         if enabled:

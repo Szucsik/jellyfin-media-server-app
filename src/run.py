@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """Launch both FastAPI applications (parsing + sync) in a single process."""
-
-import uvicorn 
-from database.db import init_db
 import multiprocessing
+import uvicorn 
+
+from database.db import init_db
 
 
+# We need two running async API's in parallel because 
+# the update and parsing process lasts for 12-48 hours
 def run_parsing_api() -> None:
+    """Start Parsing API"""
     uvicorn.run("parsing_api:app", host="0.0.0.0", port=8800)
 
 
 def run_sync_api() -> None:
+    """Run Sync API"""
     uvicorn.run("sync_api:app", host="0.0.0.0", port=8801)
 
 
