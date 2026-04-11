@@ -12,12 +12,19 @@ import re
 class DataProcessing:
     def __init__(self, config: Configuration):
         self.config = config
+        self.logger = config.logger
 
     def process(self):
-        """a"""
+        """Start the data processing for both movies and shows"""
+        self.logger.info("Start the data processing for both movies and shows")
         torrents = self.config.torrent_repository.get_all()
+        self.logger.info("Torrents collected: %i", torrents.count)
+
         shows = [t for t in torrents if t.is_show]
+        self.logger.info("Shows collected: %i", shows.count)
+
         movies = [t for t in torrents if not t.is_show]
+        self.logger.info("Movies collected: %i", movies.count)
 
         self._process_movie_torrent_data(movies)
         self._process_show_torrent_data(shows)
@@ -28,6 +35,7 @@ class DataProcessing:
         the highest-quality version. Entries with UNASSIGNED quality are
         always discarded when a better-quality duplicate exists.
         """
+        self.logger.info("Data processing of the movie data have been started")
         # Build a dict keyed by IMDB link, keeping the best-quality Torrent
         best: dict[str, Torrent] = {}
 
@@ -57,6 +65,7 @@ class DataProcessing:
         2. Higher quality wins (SD=720 < HD=1080 < UHD=2160),
             but prefer lower quality over UNASSIGNED.
         """
+        self.logger.info("Data processing of the show data have been started")
 
         # --- helpers -----------------------------------------------------------
 

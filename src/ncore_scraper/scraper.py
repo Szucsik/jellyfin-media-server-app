@@ -12,6 +12,7 @@ from selenium.webdriver.common.by import By
 
 from database.db import TorrentRepository
 from models.torrent import Quality, Torrent
+from config import Configuration
 
 from ncore_scraper.config import ScraperConfig
 from ncore_scraper.selectors import ScraperSelectors
@@ -23,8 +24,8 @@ class Scraper:
     KEY_PATTERN = re.compile(r'<link rel="alternate" href=".*?\/rss\.php\?key=(?P<key>[a-z0-9]+)" title=".*"')
     ID_PATTERN = re.compile(r"id=(\d+)")
 
-    def __init__(self, username: str, password: str, for_test: bool = False) -> None:
-        self.logger = logging.getLogger(__name__)
+    def __init__(self, username: str, password: str, config: Configuration, for_test: bool = False) -> None:
+        self.logger = config.logger
         self.logger.info("Scraper initialized")
 
         self.username = username
@@ -39,7 +40,7 @@ class Scraper:
         self.config = ScraperConfig()
         self.selectors = ScraperSelectors()
         if for_test is not True:
-            self.driver = webdriver.Firefox(self.config.driver_options)
+            self.driver = webdriver.Firefox(options=self.config.driver_options)
 
     def login(self) -> None:
         """Log in to ncore.pro and land on the home page."""

@@ -1,8 +1,6 @@
 import os
 from pathlib import Path
 import re
-import time
-import random
 
 import requests
 import torrentool.api as torrentool
@@ -10,7 +8,6 @@ import httpx
 import asyncio
 
 from config import Configuration
-from data_processing.utils.file_processing_utils import FileProcessingUtils
 from models.local_file_information import LocalFileInformation
 from models.movie import Movie
 from models.show import Show
@@ -19,10 +16,11 @@ from ncore_scraper.config import ScraperConfig
 
 
 class FileProcessing:
-
-    def __init__(self, logger, config: Configuration):
-        self.logger = logger
+    """This class is responsible for making file operations so the Jellyfin and the 
+    qBittorrent can access and load the media files and the torrents later"""
+    def __init__(self, config: Configuration):
         self.config = config
+        self.logger = config.logger
 
         self.client: httpx.AsyncClient = httpx.AsyncClient(
             headers={"User-Agent": "python ncoreparser"}, timeout=30, follow_redirects=True
@@ -32,12 +30,13 @@ class FileProcessing:
         self.scraper_config = ScraperConfig()
 
     async def process(self):
-        """a"""
+        """Start the file processing"""
 
         await self.__download_torrent_files()
         self.__generate_symlink_to_placeholders()
 
     async def download_torrent_by_id(self, id: int):
+        """Download torrent files by torrent id, not ncore torrent id but torrent ids from the database"""
         associated_torrent: Torrent = self.config.torrent_repository.find_first_by(torrent_id=id)
         path = f"{self.config.torrent_files_location}/{associated_torrent.torrent_id}.torrent"
         if not os.path.exists(path):
@@ -78,7 +77,7 @@ class FileProcessing:
 
     
     async def __download_torrent_files(self):
-        """a"""
+        """Download all torrent files that are in the database and if they are not exists"""
         self.logger.info("Download torrents process started")
         
         movies: list[Movie] = self.config.movie_repository.get_all()
@@ -136,14 +135,15 @@ class FileProcessing:
             self.__get_torrent_media_file_information(path=path, torrent=associated_torrent)
 
     async def __download_torrent_file(self, torrent: Torrent, target_path: str) -> int:
+        """Method for downloading the torrent file using httpx client"""
         while not await self.__is_logged_in():
             try:
                 self.logger.info("HTTPX not logged in. Try to log in.")
                 login_data = {"nev": self.config.username, "pass": self.config.password, "set_lang": "hu", "submitted": "1", "ne_leptessen_ki": "1"}
 
-                r = await self.client.post(self.scraper_config.login_url, data=login_data)
+                await self.client.post(self.scraper_config.login_url, data=login_data)
             except Exception as e:
-                self.logger.error("Error while performing post method to url '%s'.", torrent.download_link)
+                self.logger.error("Error while performing post method to url '%s'. Exception: %s", torrent.download_link, e)
                 await asyncio.sleep(10)
 
         try:
@@ -165,13 +165,14 @@ class FileProcessing:
         
 
     async def __is_logged_in(self):
+        """Check if the httpx client is logged in to the ncore.pro web page"""
         r = await self.client.get(self.scraper_config.home_url)
         if "login.php" in str(r.url) or "<title>nCore</title>" in r.text:
             return False
         return True
 
     def __get_torrent_media_file_information(self, path: str, torrent: Torrent) -> None:
-        """a"""
+        """Load the torrent file and check the what media files does the torrent has"""
         local_file_information = LocalFileInformation(
             torrent_id=torrent.id,
             torrent_file_local_path=path
@@ -181,8 +182,8 @@ class FileProcessing:
 
         try:
             torrent_information = torrentool.Torrent.from_file(path)
-        except:
-            self.logger.error("Couldn't open torrent file. Removing torrent %s %s", torrent.title, torrent.torrent_id)
+        except Exception as e:
+            self.logger.error("Couldn't open torrent file. Removing torrent %s %s. Exception: %s", torrent.title, torrent.torrent_id, e)
             if torrent.is_show:
                 self.config.show_season_repository.delete_by_torrent_id(torrent_id=torrent.id)
             else:
@@ -217,7 +218,7 @@ class FileProcessing:
         self.config.local_files_repository.save_if_new(local_file_information)
 
     def __generate_symlink_to_placeholders(self) -> None:
-        """a"""
+        """Generate symlinks for movies and shows."""
         movies: list[Movie] = self.config.movie_repository.get_all()
         shows: list[Show] = self.config.show_repository.get_all()
 
@@ -226,6 +227,7 @@ class FileProcessing:
         self.generate_symlinks_for_shows(shows)
 
     def generate_symlinks_for_shows(self, shows: list[Show]):
+        """This method is used for generating symlinks to a placeholder media file for every show, season and episode"""
         utils = FileProcessingUtils()
         for show in shows:
             target_directory = ""
@@ -248,13 +250,18 @@ class FileProcessing:
                 show_file_formatted = utils.get_show(files)[0]
 
                 # For shows thats title is a year like 1923, we want to keep the year in the title
-                if show_file_formatted.name == None and show_file_formatted.year != None:
+                if show_file_formatted.name is None and show_file_formatted.year is not None:
                     show_file_formatted.name = f"{show_file_formatted.year}"
                 # For shows that have a name and a year, we want to keep the year in the title
-                elif show_file_formatted.year != None:
+                elif show_file_formatted.year is not None:
                     show_file_formatted.name += f" ({show_file_formatted.year})"
 
                 match = re.search(r"/title/(tt\d+)", associated_torrent.imdb_link)
+                if match is None:
+                    self.config.logger.error("Can't find imdb id inside imdb link using regex. Torrent name: %s; Torrent id: %s, IMDB url: %s",
+                    associated_torrent.title, associated_torrent.id, associated_torrent.imdb_link)
+                    raise ValueError("Can't find imdb id inside imdb link using regex.")
+
                 imdb_id = match.group(1)
                 show_file_formatted.name += f" [imdbid-{imdb_id}]"
 
@@ -284,9 +291,12 @@ class FileProcessing:
                 self.config.local_files_repository.save(local_file)
 
     def generate_symlinks_for_movies(self, movies: list[Movie]):
+        """This method is used for generating symlinks to a placeholder media file for every movie"""
         year_pattern = re.compile(r"(19\d{2}|20\d{2})")
         for movie in movies:
             associated_torrent: Torrent = self.config.torrent_repository.find_first_by(id=movie.torrent_id)
+
+            assert associated_torrent.id is not None
 
             self.logger.info("Processing movie: %s", associated_torrent.title)
 

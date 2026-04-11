@@ -14,7 +14,7 @@ async def toggle_parsing(pages: int) -> str:
     """Start or stop the parsing / file generation pipeline."""
     logger.info("Parsing pipeline started")
 
-    scraper = Scraper(username=config.username, password=config.password)
+    scraper = Scraper(username=config.username, password=config.password, config=config)
 
     try:
         logger.info("Scraping HD movies started")
@@ -31,7 +31,7 @@ async def toggle_parsing(pages: int) -> str:
     data_processor.process()
 
     logger.info("File processor started")
-    file_processor = FileProcessing(logger=logger, config=config)
+    file_processor = FileProcessing(config=config)
     await file_processor.process()
 
     logger.info("Parsing pipeline finished")
