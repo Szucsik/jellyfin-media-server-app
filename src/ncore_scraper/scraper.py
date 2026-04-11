@@ -25,7 +25,7 @@ class Scraper:
     ID_PATTERN = re.compile(r"id=(\d+)")
 
     def __init__(self, username: str, password: str, config: Configuration, for_test: bool = False) -> None:
-        self.logger = config.logger
+        self.logger = config.get_logger(__name__)
         self.logger.info("Scraper initialized")
 
         self.username = username

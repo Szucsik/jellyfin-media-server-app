@@ -12,7 +12,7 @@ import re
 class DataProcessing:
     def __init__(self, config: Configuration):
         self.config = config
-        self.logger = config.logger
+        self.logger = config.get_logger(__name__)
 
     def process(self):
         """Start the data processing for both movies and shows"""

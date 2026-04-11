@@ -20,7 +20,7 @@ class FileProcessing:
     qBittorrent can access and load the media files and the torrents later"""
     def __init__(self, config: Configuration):
         self.config = config
-        self.logger = config.logger
+        self.logger = config.get_logger(__name__)
 
         self.client: httpx.AsyncClient = httpx.AsyncClient(
             headers={"User-Agent": "python ncoreparser"}, timeout=30, follow_redirects=True
@@ -258,7 +258,7 @@ class FileProcessing:
 
                 match = re.search(r"/title/(tt\d+)", associated_torrent.imdb_link)
                 if match is None:
-                    self.config.logger.error("Can't find imdb id inside imdb link using regex. Torrent name: %s; Torrent id: %s, IMDB url: %s",
+                    self.logger.error("Can't find imdb id inside imdb link using regex. Torrent name: %s; Torrent id: %s, IMDB url: %s",
                     associated_torrent.title, associated_torrent.id, associated_torrent.imdb_link)
                     raise ValueError("Can't find imdb id inside imdb link using regex.")
 

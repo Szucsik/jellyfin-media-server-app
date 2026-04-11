@@ -7,7 +7,7 @@ from ncore_scraper.scraper import Scraper
 
 app = FastAPI(title="Parsing & File Generation API")
 config = Configuration()
-logger = config.logger
+logger = config.get_logger(__name__)
 
 @app.post("/parsing")
 async def toggle_parsing(pages: int) -> str:
@@ -31,7 +31,7 @@ async def toggle_parsing(pages: int) -> str:
     data_processor.process()
 
     logger.info("File processor started")
-    file_processor = FileProcessing(config=config)
+    file_processor = FileProcessing(logger=logger, config=config)
     await file_processor.process()
 
     logger.info("Parsing pipeline finished")
@@ -70,7 +70,7 @@ async def download_torrents() -> str:
 # def download_torrent_By_id(id: int) -> str:
 #     """Start downloading torrent by id. The torrent and the download URL must be in the database."""
 #     config = Configuration()
-#     logger = config.logger
+#     logger = config.get_logger(__name__)
 
 #     logger.info("Torrent downloading started")
 #     file_processor = FileProcessing(logger=logger, config=config)

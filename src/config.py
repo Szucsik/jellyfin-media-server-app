@@ -20,6 +20,10 @@ class Configuration:
 
     logger = logging.getLogger(__name__)
 
+    def get_logger(self, name: str) -> logging:
+        """a"""
+        return logging.getLogger(name)
+
     # Db repositories
     torrent_repository = TorrentRepository()
     movie_repository = MovieRepository()
