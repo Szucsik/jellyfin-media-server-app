@@ -23,3 +23,5 @@ class Torrent(SQLModel, table=True):
     torrent_id: int = Field(default=-1, unique=True)
     quality: Quality = Quality.UNASSIGNED
     download_link: str = ""
+    seeders_number: int = -1
+    leechers_number: int = -1

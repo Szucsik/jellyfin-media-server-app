@@ -31,7 +31,7 @@ class ScraperSelectors:
     @dataclass(frozen=True)
     class CssSelectors:
         """Css selectors for the ncore.pro torrent webpage"""
-        
+   
         @dataclass(frozen=True)
         class BrowsePage():
             """Css selectors for the browse torrents page """
@@ -39,3 +39,5 @@ class ScraperSelectors:
             IMDB_LINKS = "a.infolink"
             TORRENT_DETAIL_LINK = "div.torrent_txt > a[href*='action=details']"
             TEXT_NOT_FOUND_LIST = '.lista_mini_error'
+            SEEDERS = "div.box_s2 a"
+            LEECHERS = "div.box_l2 a"

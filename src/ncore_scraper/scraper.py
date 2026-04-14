@@ -166,7 +166,9 @@ class Scraper:
     def _populate_torrent_details(self, torrents: list[Torrent], torrent_divs: list[WebElement]) -> list[Torrent]:
         """Write the detail page URL and display title into each Torrent stub."""
         links = [div.find_element(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.TORRENT_DETAIL_LINK) for div in torrent_divs]
-        for torrent, link in zip(torrents, links):
+        seeders = self.driver.find_elements(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.SEEDERS)
+        leechers = self.driver.find_elements(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.LEECHERS)
+        for torrent, link, seeder, leecher in zip(torrents, links, seeders, leechers):
             href = link.get_attribute("href")
             if href is None:
                 raise ValueError(f"Parse error. Torrent detail link value of torrent {torrent.title} is empty.")
@@ -182,6 +184,9 @@ class Scraper:
             torrent.torrent_id = int(match.group(1))
             torrent.quality = self._get_torrent_quality(torrent.title)
             torrent.download_link = self.config.get_torrent_download_url(torrent_id=torrent.torrent_id, key=torrent.key)
+            torrent.seeders_number = seeder.text
+            torrent.leechers_number = leecher.text
+            
         return torrents
 
     # -------------------------------------------------------------------------
