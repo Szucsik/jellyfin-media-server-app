@@ -31,7 +31,7 @@ async def toggle_parsing(pages: int) -> str:
     data_processor.process()
 
     logger.info("File processor started")
-    file_processor = FileProcessing(logger=logger, config=config)
+    file_processor = FileProcessing(config=config)
     await file_processor.process()
 
     logger.info("Parsing pipeline finished")
@@ -47,7 +47,7 @@ async def trigger_processing_stages() -> str:
     data_processor.process()
 
     logger.info("File processor started")
-    file_processor = FileProcessing(logger=logger, config=config)
+    file_processor = FileProcessing(config=config)
     await file_processor.process()
 
     logger.info("Processing pipeline finished")
@@ -58,7 +58,7 @@ async def trigger_processing_stages() -> str:
 async def download_torrents() -> str:
     """Start downloading torrent by"""
     logger.info("Torrents download processor started")
-    file_processor = FileProcessing(logger=logger, config=config)
+    file_processor = FileProcessing(config=config)
     await file_processor.process()
 
     logger.info("Torrents download pipeline finished")

@@ -16,8 +16,8 @@ _config = Configuration()
 
 def _run_sync_loop() -> None:
     global _running, _config
-    logger = _config.logger
-   
+    logger = _config.get_logger(__name__)
+
     try:
         config = Configuration()
         logger.info("Sync service started")

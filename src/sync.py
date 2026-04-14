@@ -28,7 +28,7 @@ class TorrentSyncService:
     def __init__(self, config: Configuration) -> None:
         self.config = config
         self.jellyfin = JellyfinApi(config)
-        self.logger = config.logger
+        self.logger = config.get_logger(__name__)
 
     # ── Jellyfin polling task ─────────────────────────────────────────────────
     async def _poll_jellyfin(self) -> None:
@@ -46,6 +46,7 @@ class TorrentSyncService:
                 for item in newly_played:
                     asyncio.create_task(self._handle_played_item(item))
 
+            self.logger.info("Wait 1 second before the next Jellyfin API query")
             await asyncio.sleep(1)
 
     # ── Handle a single newly-played item ─────────────────────────────────────
