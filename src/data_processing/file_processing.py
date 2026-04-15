@@ -9,6 +9,7 @@ import asyncio
 
 from config import Configuration
 from models.local_file_information import LocalFileInformation
+from data_processing.utils.file_processing_utils import FileProcessingUtils
 from models.movie import Movie
 from models.show import Show
 from models.torrent import Torrent
@@ -79,7 +80,7 @@ class FileProcessing:
     async def __download_torrent_files(self):
         """Download all torrent files that are in the database and if they are not exists"""
         self.logger.info("Download torrents process started")
-        
+
         movies: list[Movie] = self.config.movie_repository.get_all()
         shows: list[Show] = self.config.show_repository.get_all()
 

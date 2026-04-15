@@ -17,11 +17,17 @@ async def toggle_parsing(pages: int) -> str:
     scraper = Scraper(username=config.username, password=config.password, config=config)
 
     try:
-        logger.info("Scraping HD movies started")
-        scraper.get_all_hd_torrents(is_show=False, max_pages=pages)
+        logger.info("%s Scraping HD movies started", '-' * 20)
+        scraper.get_all_torrents(is_show=False, is_hd=True, max_pages=pages)
 
-        logger.info("Scraping HD shows started")
-        scraper.get_all_hd_torrents(is_show=True, max_pages=pages)
+        logger.info("%s Scraping SD movies started", '-' * 20)
+        scraper.get_all_torrents(is_show=False, is_hd=False, max_pages=pages)
+
+        logger.info("%s Scraping HD shows started", '-' * 20)
+        scraper.get_all_torrents(is_show=True, is_hd=True, max_pages=pages)
+
+        logger.info("%s Scraping SD shows started", '-' * 20)
+        scraper.get_all_torrents(is_show=True, is_hd=False, max_pages=pages)
     finally:
         logger.info("Close webdriver")
         scraper.close()

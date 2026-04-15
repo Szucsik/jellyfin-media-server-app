@@ -50,7 +50,7 @@ class Scraper:
         self._handle_post_login_redirections()
         self.logged_in = True
 
-    def get_all_hd_torrents(self, is_show: bool, max_pages: int = 5) -> None:
+    def get_all_torrents(self, is_show: bool, is_hd: bool, max_pages: int = 5) -> None:
         """
         Collect HD serie torrents across multiple browse pages.
 
@@ -63,7 +63,7 @@ class Scraper:
 
         for page in range(1, max_pages + 1):
             self.logger.info("Navigate to page %s. is_show=%f", page, is_show)
-            url = self.config.get_browse_hd_shows_url(page) if is_show else self.config.get_browse_hd_movies_url(page)
+            url = self._get_url(page=page, is_show=is_show, is_hd=is_hd)
             self.__navigate(url)
 
             # Stop if the "no results" indicator is absent (i.e., results exist)
@@ -73,7 +73,8 @@ class Scraper:
                 break
 
             self.logger.info("Save data to database.")
-            self.torrent_repository.save_new_only(self._get_torrent_data_from_page(is_show=is_show,category="HD"))
+            category = "HD" if is_hd else "SD"
+            self.torrent_repository.save_new_only(self._get_torrent_data_from_page(is_show=is_show,category=category, is_hd=is_hd))
 
     def close(self) -> None:
         """Clean up resources (e.g., close the WebDriver)."""
@@ -83,6 +84,20 @@ class Scraper:
     # -------------------------------------------------------------------------
     # Navigation helpers
     # -------------------------------------------------------------------------
+
+    def _get_url(self, page: int, is_show: bool, is_hd: bool):
+        """Get urls for different torrent scopes"""
+        if is_show:
+            if is_hd:
+                return self.config.get_browse_hd_shows_url(page)
+            else:
+                return self.config.get_browser_sd_shows_url(page)
+        else:
+            if is_hd:
+                return self.config.get_browse_hd_movies_url(page)
+            else:
+                return self.config.get_browser_sd_movies_url(page)
+
 
     def _open_login_page(self) -> None:
         """Navigate to the login page, retrying until all form elements are present."""
@@ -107,7 +122,7 @@ class Scraper:
     # Torrent data extraction
     # -------------------------------------------------------------------------
 
-    def _get_torrent_data_from_page(self, is_show: bool, category: str) -> list[Torrent]:
+    def _get_torrent_data_from_page(self, is_show: bool, is_hd: bool, category: str) -> list[Torrent]:
         """
         Extract raw torrent data (IMDB links, titles, detail links) from the current page.
         `page` is accepted for future use (e.g., logging) but not used directly.
@@ -119,7 +134,7 @@ class Scraper:
         torrent_divs = self._get_torrent_text_divs()
 
         self.logger.debug("Extracting torrent details.")
-        torrents = self._populate_torrent_details(torrents, torrent_divs)
+        torrents = self._populate_torrent_details(torrents, torrent_divs, is_hd)
 
         self.logger.debug("Extracting imdb links for the torrents.")
         final = self._populate_imdb_links(torrents, torrent_divs)
@@ -163,7 +178,7 @@ class Scraper:
             torrent.imdb_link = href
         return torrents
 
-    def _populate_torrent_details(self, torrents: list[Torrent], torrent_divs: list[WebElement]) -> list[Torrent]:
+    def _populate_torrent_details(self, torrents: list[Torrent], torrent_divs: list[WebElement], is_hd: bool) -> list[Torrent]:
         """Write the detail page URL and display title into each Torrent stub."""
         links = [div.find_element(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.TORRENT_DETAIL_LINK) for div in torrent_divs]
         seeders = self.driver.find_elements(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.SEEDERS)
@@ -182,7 +197,7 @@ class Scraper:
                     raise ValueError(f"No valid 'id' parameter found in URL: {torrent.detail_link}")
             
             torrent.torrent_id = int(match.group(1))
-            torrent.quality = self._get_torrent_quality(torrent.title)
+            torrent.quality = self._get_torrent_quality(torrent.title) if is_hd else "SD"
             torrent.download_link = self.config.get_torrent_download_url(torrent_id=torrent.torrent_id, key=torrent.key)
             torrent.seeders_number = seeder.text
             torrent.leechers_number = leecher.text
@@ -347,8 +362,6 @@ class Scraper:
                     self.__click_button(welcome_btn, "CLOSE_WELCOME")
                 except Exception as e:  
                     self.logger.error("Failed to dismiss welcome message: %s", e)
-
-            
 
     def __write_to_textbox(self, text: str, xpath: str, label: str) -> None:
         """Locate a text input by XPath, type `text` into it, then sleep."""
