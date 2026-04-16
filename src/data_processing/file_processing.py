@@ -24,7 +24,7 @@ class FileProcessing:
         self.logger = config.get_logger(__name__)
 
         self.client: httpx.AsyncClient = httpx.AsyncClient(
-            headers={"User-Agent": "python ncoreparser"}, timeout=30, follow_redirects=True
+            headers={"User-Agent": "python ncoreparser"}, timeout=300, follow_redirects=True
         )
 
         self.client.cookies.clear()

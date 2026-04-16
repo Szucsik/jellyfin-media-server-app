@@ -127,16 +127,16 @@ class Scraper:
         Extract raw torrent data (IMDB links, titles, detail links) from the current page.
         `page` is accepted for future use (e.g., logging) but not used directly.
         """
-        self.logger.debug("Generate empty list of torrents for the page.")
+        self.logger.info("Generate empty list of torrents for the page.")
         torrents = self._generate_torrent_stubs(is_show=is_show, category=category)
 
-        self.logger.debug("Extractiong the text divs from the page.")
+        self.logger.info("Extractiong the text divs from the page.")
         torrent_divs = self._get_torrent_text_divs()
 
-        self.logger.debug("Extracting torrent details.")
+        self.logger.info("Extracting torrent details.")
         torrents = self._populate_torrent_details(torrents, torrent_divs, is_hd)
 
-        self.logger.debug("Extracting imdb links for the torrents.")
+        self.logger.info("Extracting imdb links for the torrents.")
         final = self._populate_imdb_links(torrents, torrent_divs)
     
         return final
@@ -164,6 +164,7 @@ class Scraper:
 
     def _populate_imdb_links(self, torrents: list[Torrent], torrent_divs: list[WebElement]) -> list[Torrent]:
         """Write the IMDB URL into each Torrent stub in list order."""
+        self.logger.info("Starting populating imdb links")
         for torrent, div in zip(torrents, torrent_divs):
             imdb_elements = div.find_elements(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.IMDB_LINKS)
             if not imdb_elements:
@@ -180,6 +181,7 @@ class Scraper:
 
     def _populate_torrent_details(self, torrents: list[Torrent], torrent_divs: list[WebElement], is_hd: bool) -> list[Torrent]:
         """Write the detail page URL and display title into each Torrent stub."""
+        self.logger.info("Starting populate torrent details")
         links = [div.find_element(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.TORRENT_DETAIL_LINK) for div in torrent_divs]
         seeders = self.driver.find_elements(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.SEEDERS)
         leechers = self.driver.find_elements(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.LEECHERS)
@@ -267,6 +269,7 @@ class Scraper:
         `similarity_threshold` (default 80 %) similar to that reference,
         a ValueError is raised with full diagnostic information.
         """
+        self.logger.info("Validating torrent titles")
 
         # --- group by IMDB link ------------------------------------------------
         by_imdb: dict[str, list[Torrent]] = {}
@@ -312,6 +315,7 @@ class Scraper:
         Extract the per-session RSS/download key from the page source.
         Raises ValueError if the key cannot be found.
         """
+        self.logger.info("Get download key")
         match = self.KEY_PATTERN.search(self.driver.page_source)
         if not match:
             raise ValueError("Could not extract the download key from page source.")
@@ -333,6 +337,7 @@ class Scraper:
 
     def _submit_credentials(self) -> None:
         """Fill in the username/password fields and click the login button."""
+        self.logger.info("Submitting credentials")
         self.__write_to_textbox(self.username, self.selectors.Xpaths.LoginPage.TEXTBOX_USERNAME, "USERNAME")
         self.__write_to_textbox(self.password, self.selectors.Xpaths.LoginPage.TEXTBOX_PASSWORD, "PASSWORD")
         self.__click_button(self.selectors.Xpaths.LoginPage.BUTTON_LOGIN, "LOGIN_BUTTON")
@@ -386,6 +391,14 @@ class Scraper:
     def __navigate(self, url: str) -> None:
         """Navigate the browser to `url` and sleep once the page loads."""
         self.logger.info("Navigating to %s", url)
-        self.driver.get(url)
+        tries = 0
+        max_tries = 100
+        successful = False
+        while not successful and tries < max_tries:
+            try:
+                self.driver.get(url)
+                successful = True
+            except Exception as e:
+                self.logger.error("Error while navigating to the webpage. %s Retrying... %s/%s Exception: %s", self.driver.current_url, tries, max_tries, e)
         self.logger.info("Landed on %s", self.driver.current_url)
         self.__sleep()

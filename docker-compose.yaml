@@ -1,7 +1,7 @@
 services:
   media-server-app:
-    # build: .
-    image: ghcr.io/szucsik/jellyfin-media-server-app:0.0.1-MVP
+    build: .
+    # image: ghcr.io/szucsik/jellyfin-media-server-app:0.0.1-MVP
     container_name: media-server-app
     ports:
       - 8800:8800
@@ -9,31 +9,31 @@ services:
     volumes:
       - type: bind
         source: ${VOLUME_MOVIE_DIR}
-        target: ${VOLUME_MOVIE_DIR}
+        target: ${VOLUME_MOVIE_TARGET_DIR}
       - type: bind
         source: ${VOLUME_SERIES_DIR}
-        target: ${VOLUME_SERIES_DIR}
+        target: ${VOLUME_SERIES_TARGET_DIR}
       - type: bind
         source: ${VOLUME_DOWNLOADED_DIR}
-        target: ${VOLUME_DOWNLOADED_DIR}
+        target: ${VOLUME_DOWNLOADED_TARGET_DIR}
       - type: bind
         source: ${VOLUME_PLACEHOLDER_DIR}
         target: ${VOLUME_PLACEHOLDER_TARGET_DIR}
         read_only: true
       - type: bind
         source: ${TORRENT_FILES_LOCATION}
-        target: ${TORRENT_FILES_LOCATION}
+        target: ${TORRENT_FILES_TARGET_LOCATION}
       - type: bind
         source: ${VOLUME_DB_PATH}        # e.g. /home/you/myproject/database.db
         target: /app/database.db
     environment:
       - NCORE_USERNAME=${NCORE_USERNAME}
       - NCORE_PASSWORD=${NCORE_PASSWORD}
-      - TORRENT_FILES_LOCATION=${TORRENT_FILES_LOCATION}
-      - VOLUME_SERIES_DIR=${VOLUME_SERIES_DIR}
-      - VOLUME_MOVIE_DIR=${VOLUME_MOVIE_DIR}
+      - TORRENT_FILES_LOCATION=${TORRENT_FILES_TARGET_LOCATION}
+      - VOLUME_SERIES_DIR=${VOLUME_SERIES_TARGET_DIR}
+      - VOLUME_MOVIE_DIR=${VOLUME_MOVIE_TARGET_DIR}
       - VOLUME_PLACEHOLDER_TARGET_DIR=${VOLUME_PLACEHOLDER_TARGET_DIR}
-      - VOLUME_DOWNLOADED_DIR=${VOLUME_DOWNLOADED_DIR}
+      - VOLUME_DOWNLOADED_DIR=${VOLUME_DOWNLOADED_TARGET_DIR}
       - JELLYFIN_URL=${JELLYFIN_URL}
       - JELLYFIN_USER_ID=${JELLYFIN_USER_ID}
       - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
