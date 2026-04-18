@@ -39,7 +39,7 @@ class FileProcessing:
     async def download_torrent_by_id(self, id: int):
         """Download torrent files by torrent id, not ncore torrent id but torrent ids from the database"""
         associated_torrent: Torrent = self.config.torrent_repository.find_first_by(torrent_id=id)
-        path = f"{self.config.torrent_files_location}/{associated_torrent.torrent_id}.torrent"
+        path = f"{self.config.torrent_files_target_location}/{associated_torrent.torrent_id}.torrent"
         if not os.path.exists(path):
             self.logger.info("Starting to download torrent: %s", associated_torrent.title)
             max_tries = 100
@@ -100,7 +100,7 @@ class FileProcessing:
         self.logger.info("Movie torrents collected: %s", len(movies))
 
         for associated_torrent in torrents_list:
-            path = f"{self.config.torrent_files_location}/{associated_torrent.torrent_id}.torrent"
+            path = f"{self.config.torrent_files_target_location}/{associated_torrent.torrent_id}.torrent"
             if not os.path.exists(path):
                 self.logger.info("Starting to download torrent: %s", associated_torrent.title)
                 max_tries = 100
@@ -359,7 +359,7 @@ class FileProcessing:
                 if subdirectories != "":
                     target_directory = target_directory / Path(subdirectories)
 
-                if Path(self.config.torrent_files_location).name in target_directory.name:
+                if Path(self.config.torrent_files_target_location).name in target_directory.name:
                     target_directory = Path(symlink_directory_path) / Path(Path(file).stem + f" [imdbid-{imdb_id}]")
 
                 target_directory.mkdir(parents=True, exist_ok=True)

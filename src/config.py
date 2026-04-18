@@ -37,6 +37,7 @@ class Configuration:
 
     # Filesystem variables
     torrent_files_location = os.getenv("TORRENT_FILES_LOCATION")
+    torrent_files_target_location = os.getenv("TORRENT_FILES_TARGET_LOCATION")
     symlink_series_directory = os.getenv("VOLUME_SERIES_DIR")
     symlink_movies_directory = os.getenv("VOLUME_MOVIE_DIR")
     placeholders_directory = os.getenv("VOLUME_PLACEHOLDER_TARGET_DIR")
