@@ -1,7 +1,7 @@
 services:
   media-server-app:
-    build: .
-    # image: ghcr.io/szucsik/jellyfin-media-server-app:0.0.1-MVP
+   # build: .
+    image: ghcr.io/szucsik/jellyfin-media-server-app:0.0.1-MVP
     container_name: media-server-app
     ports:
       - 8800:8800
@@ -52,6 +52,11 @@ services:
     container_name: jellyfin
     # Optional - specify the uid and gid you would like Jellyfin to use instead of root
     user: 1000:1000
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
+    # ✅ ADD THIS — give Jellyfin permission to use the render device
+    group_add:
+      - 992   # or the numeric GID, see below
     ports:
       - 8096:8096/tcp
       - 7359:7359/udp
