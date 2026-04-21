@@ -45,8 +45,7 @@ class TorrentSyncService:
                 self.logger.info("🎬 %d item(s) played since last poll", len(newly_played))
                 for item in newly_played:
                     asyncio.create_task(self._handle_played_item(item))
-
-            self.logger.info("Wait 1 second before the next Jellyfin API query")
+                    
             await asyncio.sleep(1)
 
     # ── Handle a single newly-played item ─────────────────────────────────────
@@ -118,7 +117,7 @@ class TorrentSyncService:
             symlink = Path(symlink_str)
 
             if not downloaded_file.exists():
-                self.logger.warning("Downloaded file not found: %s", original_downloaded_file)
+                self.logger.warning("Downloaded file not found: %s", downloaded_file)
                 continue
 
             if symlink.is_symlink():

@@ -11,8 +11,9 @@ app = FastAPI(title="Jellyfin & BitTorrent Sync API")
 _lock = threading.Lock()
 _running = False
 _task_thread: threading.Thread | None = None
-_stop_event = asyncio.Event()
+_stop_event = threading.Event()
 _config = Configuration()
+
 
 def _run_sync_loop() -> None:
     global _running, _config
@@ -30,7 +31,12 @@ def _run_sync_loop() -> None:
         async def _guarded_run() -> None:
             _stop_event.clear()
             poll_task = asyncio.create_task(sync_service.run())
-            stop_task = asyncio.create_task(_stop_event.wait())
+
+            async def _wait_for_stop() -> None:
+                await asyncio.get_event_loop().run_in_executor(None, _stop_event.wait)
+
+            stop_task = asyncio.create_task(_wait_for_stop())
+
             done, pending = await asyncio.wait(
                 {poll_task, stop_task}, return_when=asyncio.FIRST_COMPLETED,
             )
