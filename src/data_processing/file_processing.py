@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import re
+from typing import Counter
 
 import requests
 import torrentool.api as torrentool
@@ -227,13 +228,15 @@ class FileProcessing:
         self.generate_symlinks_for_movies(movies)
         self.generate_symlinks_for_shows(shows)
 
+
     def generate_symlinks_for_shows(self, shows: list[Show]):
         """This method is used for generating symlinks to a placeholder media file for every show, season and episode"""
         utils = FileProcessingUtils()
         for show in shows:
-            target_directory = ""
             seasons = self.config.show_season_repository.get_all_seasons_for_show(show.id)
 
+            target_directory = ""
+            
             self.logger.info("Processing show: %s", show.id)
             for season in seasons:
                 associated_torrent: Torrent = self.config.torrent_repository.find_first_by(id=season.torrent_id)
@@ -250,13 +253,6 @@ class FileProcessing:
 
                 show_file_formatted = show_file_formatted_array[0]
 
-                # For shows thats title is a year like 1923, we want to keep the year in the title
-                if show_file_formatted.name is None and show_file_formatted.year is not None:
-                    show_file_formatted.name = f"{show_file_formatted.year}"
-                # For shows that have a name and a year, we want to keep the year in the title
-                elif show_file_formatted.year is not None:
-                    show_file_formatted.name += f" ({show_file_formatted.year})"
-
                 match = re.search(r"/title/(tt\d+)", associated_torrent.imdb_link)
                 if match is None:
                     self.logger.error("Can't find imdb id inside imdb link using regex. Torrent name: %s; Torrent id: %s, IMDB url: %s",
@@ -264,11 +260,10 @@ class FileProcessing:
                     raise ValueError("Can't find imdb id inside imdb link using regex.")
 
                 imdb_id = match.group(1)
-                show_file_formatted.name += f" [imdbid-{imdb_id}]"
 
-                symlink_directory_path = Path(self.config.symlink_series_directory)
                 if target_directory == "":
-                    target_directory = Path(symlink_directory_path) / Path(show_file_formatted.name)
+                    show_name = utils.get_name_by_id_from_tmdb(imdb_id=imdb_id, api_key=self.config.tmdb_api_key)  # IMDB ID is the same for all the seasons!
+                    target_directory = Path(self.config.symlink_series_directory) / Path(show_name)
                 target_directory.mkdir(parents=True, exist_ok=True)
                 
                 symlink_paths: list[str] = []
@@ -311,6 +306,7 @@ class FileProcessing:
                 file_name = file_path_parts[len(file_path_parts)-1]
                 subdirectories = ""
 
+                # Subdirectories: directories between the root directory and the media files
                 if len(file_path_parts) > 2:    
                     subdirectories = "/".join(file_path_parts[1:len(file_path_parts)-1])
 

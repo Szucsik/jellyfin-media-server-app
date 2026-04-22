@@ -49,6 +49,9 @@ class Configuration:
     jellyfin_user_id = os.getenv("JELLYFIN_USER_ID")
     jellyfin_api_key = os.getenv("JELLYFIN_API_KEY")
 
+    # TMDB
+    tmdb_api_key = os.getenv("TMDB_API_KEY")
+
     # qBittorrent variables
     qbittorrent_host = os.getenv("QBITTORRENT_HOST")
     qbittorrent_port = os.getenv("QBITTORRENT_PORT")

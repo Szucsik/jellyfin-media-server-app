@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import requests
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -293,6 +294,27 @@ class FileProcessingUtils:
             shows.append(Show(name=name, year=year, seasons=seasons))
 
         return shows
+
+
+    def get_name_by_id_from_tmdb(self, imdb_id: str, api_key: str) -> str:
+        """Get movie or show name by imdb id"""
+        url = f"https://api.themoviedb.org/3/find/{imdb_id}"
+        params = {
+            "api_key": api_key,
+            "external_source": "imdb_id"
+        }
+
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+
+        # Check movies first, then TV shows
+        if data["movie_results"]:
+            return f"{data['movie_results'][0]['title']} [imdbid-{imdb_id}]"
+        elif data["tv_results"]:
+            return f"{data['tv_results'][0]['name']} [imdbid-{imdb_id}]"
+        else:
+            return ""
+
 
     def get_show(self, files: list[str]) -> list[Show]:
         return self.parse(files)

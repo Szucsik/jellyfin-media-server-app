@@ -1,5 +1,3 @@
-from typing import Counter
-
 from config import Configuration
 from models.show import Show
 from models.torrent import Quality, Torrent
@@ -101,28 +99,6 @@ class DataProcessing:
             if t.season > 0 and t.season_to > 0:
                 return t.season <= season <= t.season_to
             return False
-
-        def keep_most_common_prefix(items: list[Torrent]) -> list[Torrent]:
-            # Extract first part of each title
-            prefixes = [
-                item.title.split('.')[0]
-                for item in items
-                if isinstance(item.title, str) and item.title
-            ]
-
-            if not prefixes:
-                return items  # nothing to filter
-
-            # Find most common prefix
-            most_common_prefix, _ = Counter(prefixes).most_common(1)[0]
-
-            # Keep only items that match it
-            filtered = [
-                item for item in items
-                if item.title.split('.')[0] == most_common_prefix
-            ]
-
-            return filtered
             
         def better(challenger: tuple[Torrent, ShowSeason], current: tuple[Torrent, ShowSeason]) -> bool:
             """
@@ -156,9 +132,6 @@ class DataProcessing:
         for imdb_link, series_torrents in by_series.items():
             # Find every season number that appears across all torrents
             all_seasons: set[int] = set()
-
-            # Show season 
-            series_torrents = keep_most_common_prefix(series_torrents)
 
             # We need the Torrent and the Showseason together
             shows: list[tuple[Torrent, ShowSeason]] = []
