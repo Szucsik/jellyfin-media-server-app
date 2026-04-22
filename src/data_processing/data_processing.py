@@ -189,7 +189,6 @@ class DataProcessing:
                 if len(episodes) > 1:
                     show_season.episode = int(episodes[0])
 
-
                 shows.append((t, show_season))
 
                 if is_single_season(show_season.season, show_season.season_to):

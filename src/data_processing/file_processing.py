@@ -248,7 +248,7 @@ class FileProcessing:
                 if len(show_file_formatted_array) == 0:
                     continue
 
-                show_file_formatted = utils.get_show(files)[0]
+                show_file_formatted = show_file_formatted_array[0]
 
                 # For shows thats title is a year like 1923, we want to keep the year in the title
                 if show_file_formatted.name is None and show_file_formatted.year is not None:
