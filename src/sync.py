@@ -38,11 +38,10 @@ class TorrentSyncService:
 
         while True:
             newly_played = await loop.run_in_executor(
-                None, self.jellyfin.poll_once,
+                None, self.jellyfin.fetch_items,
             )
 
             if newly_played:
-                self.logger.info("🎬 %d item(s) played since last poll", len(newly_played))
                 for item in newly_played:
                     asyncio.create_task(self._handle_played_item(item))
                     
@@ -50,15 +49,18 @@ class TorrentSyncService:
 
     # ── Handle a single newly-played item ─────────────────────────────────────
     async def _handle_played_item(self, item: dict) -> None:
-        path = item.get("Path", "")
-        label = self.jellyfin.item_label(item)
+        path = item.get('NowPlayingItem', {}).get('Path')
+
+        if path is None:
+            return
+        
         imdb_id = extract_imdb_id(path)
 
         if not imdb_id:
-            self.logger.warning("No IMDb ID in path for '%s': %s", label, path)
+            self.logger.warning("No IMDb ID in path for %s", path)
             return
 
-        self.logger.info("Played: %s (IMDb: %s)", label, imdb_id)
+        self.logger.info("Played: %s (IMDb: %s)", path, imdb_id)
 
         torrent: Optional[Torrent] = self.config.torrent_repository.find_registered_media_by_imdb_id(imdb_id)
         if not torrent:
