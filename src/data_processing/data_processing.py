@@ -39,6 +39,13 @@ class DataProcessing:
         # Build a dict keyed by IMDB link, keeping the best-quality Torrent
         best: dict[str, Torrent] = {}
 
+        order = {
+            Quality.HD:         1,   # 720p  – most preferred
+            Quality.UHD:        2,   # 1080p
+            Quality.SD:         3,   # 2160p
+            Quality.UNASSIGNED: 99,  # always last
+        }
+
         for torrent in torrents:
             key = torrent.imdb_link
             existing = best.get(key)
@@ -50,7 +57,7 @@ class DataProcessing:
             # Prefer the torrent with the numerically higher quality value
             if torrent.quality == Quality.UNASSIGNED:
                 continue  # Never replace a known-quality entry with an unassigned one
-            if existing.quality == Quality.UNASSIGNED or int(torrent.quality.value) > int(existing.quality.value):
+            if existing.quality == Quality.UNASSIGNED or order.get(torrent.quality) < order.get(existing.quality):
                 best[key] = torrent
 
         for torrent in best.values():
