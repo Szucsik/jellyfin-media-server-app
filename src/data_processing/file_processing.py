@@ -257,13 +257,14 @@ class FileProcessing:
 
                 show_file_formatted = show_file_formatted_array[0]
 
+                # Add the metadata provider to the title
                 match = re.search(r"/title/(tt\d+)", associated_torrent.imdb_link)
-                if match is None:
-                    self.logger.error("Can't find imdb id inside imdb link using regex. Torrent name: %s; Torrent id: %s, IMDB url: %s",
-                    associated_torrent.title, associated_torrent.id, associated_torrent.imdb_link)
-                    raise ValueError("Can't find imdb id inside imdb link using regex.")
-
-                imdb_id = match.group(1)
+                if match:
+                    imdb_id = match.group(1)
+                else:
+                    # handle the case where no match is found
+                    self.logger.error("No imdb string found in %s. Torrent id: %r", associated_torrent.title, associated_torrent.torrent_id)
+                    continue
 
                 if target_directory == "":
                     show_name = utils.get_name_by_id_from_tmdb(imdb_id=imdb_id, api_key=self.config.tmdb_api_key)  # IMDB ID is the same for all the seasons!

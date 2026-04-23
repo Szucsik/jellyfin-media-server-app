@@ -185,6 +185,7 @@ class Scraper:
         links = [div.find_element(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.TORRENT_DETAIL_LINK) for div in torrent_divs]
         seeders = self.driver.find_elements(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.SEEDERS)
         leechers = self.driver.find_elements(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.LEECHERS)
+        download_key = self._get_download_key()
         for torrent, link, seeder, leecher in zip(torrents, links, seeders, leechers):
             href = link.get_attribute("href")
             if href is None:
@@ -192,7 +193,7 @@ class Scraper:
 
             torrent.detail_link = href
             torrent.title = link.text
-            torrent.key = self._get_download_key()
+            torrent.key = download_key
 
             match = self.ID_PATTERN.search(torrent.detail_link)
             if not match:
