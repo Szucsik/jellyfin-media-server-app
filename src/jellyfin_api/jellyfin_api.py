@@ -49,3 +49,25 @@ class JellyfinApi:
         except requests.RequestException as exc:
             self.logger.error("Failed to fetch items: %s", exc)
             return []
+
+    def refresh_item(self, item_id: str) -> None:
+        """
+        Refresh target item
+        """
+        url = f"{self.server_url}/Items/{item_id}/Refresh"
+
+        params = {
+            "metadataRefreshMode": "FullRefresh",
+            "imageRefreshMode": "Default",
+            "replaceAllMetadata": "false",
+            "replaceAllImages": "false",
+        }
+
+        try:
+            resp = requests.post(url, headers=self._headers(), params=params, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            self.logger.info('Jellyfin refresh has been triggered.')
+        except requests.RequestException as exc:
+            self.logger.error("Failed to refresh item: %s Exception: %s", item_id, exc)
+            return []

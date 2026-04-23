@@ -29,6 +29,7 @@ class TorrentSyncService:
         self.config = config
         self.jellyfin = JellyfinApi(config)
         self.logger = config.get_logger(__name__)
+        self.tiggered_imdb_ids: list[str] = []
 
     # ── Jellyfin polling task ─────────────────────────────────────────────────
     async def _poll_jellyfin(self) -> None:
@@ -53,12 +54,17 @@ class TorrentSyncService:
 
         if path is None:
             return
-        
+     
         imdb_id = extract_imdb_id(path)
 
         if not imdb_id:
             self.logger.warning("No IMDb ID in path for %s", path)
             return
+
+        if imdb_id in self.tiggered_imdb_ids:
+            return
+
+        self.tiggered_imdb_ids.append(imdb_id)
 
         self.logger.info("Played: %s (IMDb: %s)", path, imdb_id)
 
@@ -71,6 +77,9 @@ class TorrentSyncService:
         try:
             await self._download_torrent(torrent)
             self.logger.info("Download complete: %s", torrent.title)
+            self.logger.info("Triggering jellyfin to scan the new item")
+            self.jellyfin.refresh_item(item.get('NowPlayingItem', {}).get('Id'))
+            self.logger.info("Jellyfin scan completed")
         except Exception as exc:
             self.logger.error("Download failed for %s: %s", torrent.title, exc)
 
