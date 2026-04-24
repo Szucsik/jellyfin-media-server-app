@@ -63,9 +63,10 @@ class JellyfinApi:
         }
 
         try:
+            self.logger.info('Post request to update the Jellyfin item %s', url)
             resp = requests.post(url, headers=self._headers(), params=params, timeout=30)
+            self.logger.info('Post request completed')
             resp.raise_for_status()
-            data = resp.json()
             self.logger.info('Jellyfin refresh has been triggered.')
         except requests.RequestException as exc:
             self.logger.error("Failed to refresh item: %s Exception: %s", item_id, exc)
