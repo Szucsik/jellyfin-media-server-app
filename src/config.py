@@ -84,8 +84,9 @@ class Configuration:
     placeholder_less_then_one_hr_left_path = placeholders_directory + "/jellyfin-placeholder-less-then-1-hour-left.mp4"
     placeholder_half_hr_left_path = placeholders_directory + "/jellyfin-placeholder-half-hour-left.mp4"
     placeholder_less_then_twenty_min_left_path = placeholders_directory + "/jellyfin-placeholder-less-then-20-minutes-left.mp4"
-    placeholder_less_then_ten_min_left_path = placeholders_directory + "/jellyfin-placeholder.mp4"
-    placeholder_less_then_five_min_left_path = placeholders_directory + "/jellyfin-placeholder.mp4"
+    placeholder_less_then_ten_min_left_path = placeholders_directory + "/jellyfin-placeholder-less-then-10-minutes-left.mp4"
+    placeholder_less_then_five_min_left_path = placeholders_directory + "/jellyfin-placeholder-less-then-5-minutes-left.mp4"
+    placeholder_less_then_a_few_min_left_path = placeholders_directory + "/jellyfin-placeholder-less-then-a-few-minutes-left.mp4"
 
     def __init__(self):
         pass

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from pathlib import Path
 
 import qbittorrentapi
 import torrentool.api as torrentool
@@ -37,28 +38,36 @@ class BittorrentAPI:
             client.auth_log_in()
             return client
 
-        def set_eta_checkpoint_placeholders(seconds: int, symlink_paths: list[str]) -> str:
+        def set_eta_checkpoint_placeholders(seconds: int, symlink_paths: list[str]) -> None:
             """Return a checkpoint label based on ETA."""
             if seconds < 0 or seconds == 8640000:
-                return "⬛ No estimate (stalled or no peers)"
+                return
 
             minutes = seconds / 60
 
-            for symlink in symlink_paths:
+            for symlink_path in symlink_paths:
+                symlink = Path(symlink_path) 
                 if symlink.is_symlink():
+                    self.logger.info('Symlink file update: %s', symlink)
                     symlink.unlink()
                 if minutes >= 60:
+                    self.logger.info('ETA checkpoint is set to 1 hour')
                     symlink.symlink_to(self.config.placeholder_one_hr_left_path)
                 elif minutes > 35:
+                    self.logger.info('ETA checkpoint is set half hour')
                     symlink.symlink_to(self.config.placeholder_half_hr_left_path)
                 elif minutes > 20:
+                    self.logger.info('ETA checkpoint is set to 20 minites')
                     symlink.symlink_to(self.config.placeholder_less_then_twenty_min_left_path)
                 elif minutes > 10:
+                    self.logger.info('ETA checkpoint is set to 10 minites')
                     symlink.symlink_to(self.config.placeholder_less_then_ten_min_left_path)
                 elif minutes > 5:
+                    self.logger.info('ETA checkpoint is set to 5 minites')
                     symlink.symlink_to(self.config.placeholder_less_then_five_min_left_path)
                 else:
-                    symlink.symlink_to(self.config.placeholder_less_then_five_min_left_path)
+                    self.logger.info('ETA checkpoint is set to a few minites')
+                    symlink.symlink_to(self.config.placeholder_less_then_a_few_min_left_path)
 
         client = await loop.run_in_executor(None, connect)
         self.logger.info("Connected to qBittorrent %s", client.app.version)
