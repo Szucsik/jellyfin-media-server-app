@@ -2,3 +2,9 @@ pydantic
 pytest
 torrentool
 sqlmodel
+selenium
+requests
+qbittorrent-api
+fastapi
+uvicorn
+httpx

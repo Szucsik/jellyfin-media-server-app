@@ -1,0 +1,1504 @@
+[
+    {
+        "PlayState": {
+            "PositionTicks": 41546111,
+            "CanSeek": true,
+            "IsPaused": false,
+            "IsMuted": false,
+            "VolumeLevel": 100,
+            "AudioStreamIndex": 1,
+            "SubtitleStreamIndex": -1,
+            "MediaSourceId": "713df22e97bfe67c4efc176773fe1114",
+            "PlayMethod": "DirectPlay",
+            "RepeatMode": "RepeatNone",
+            "PlaybackOrder": "Default"
+        },
+        "AdditionalUsers": [],
+        "Capabilities": {
+            "PlayableMediaTypes": [
+                "Audio",
+                "Video"
+            ],
+            "SupportedCommands": [
+                "MoveUp",
+                "MoveDown",
+                "MoveLeft",
+                "MoveRight",
+                "PageUp",
+                "PageDown",
+                "PreviousLetter",
+                "NextLetter",
+                "ToggleOsd",
+                "ToggleContextMenu",
+                "Select",
+                "Back",
+                "SendKey",
+                "SendString",
+                "GoHome",
+                "GoToSettings",
+                "VolumeUp",
+                "VolumeDown",
+                "Mute",
+                "Unmute",
+                "ToggleMute",
+                "SetVolume",
+                "SetAudioStreamIndex",
+                "SetSubtitleStreamIndex",
+                "DisplayContent",
+                "GoToSearch",
+                "DisplayMessage",
+                "SetRepeatMode",
+                "SetShuffleQueue",
+                "ChannelUp",
+                "ChannelDown",
+                "PlayMediaSource",
+                "PlayTrailers"
+            ],
+            "SupportsMediaControl": true,
+            "SupportsPersistentIdentifier": false
+        },
+        "RemoteEndPoint": "192.168.0.230",
+        "PlayableMediaTypes": [
+            "Audio",
+            "Video"
+        ],
+        "Id": "c0273a366499843aab873a9b7bf6d674",
+        "UserId": "e3cc30114c354b68995e36c06793dedc",
+        "UserName": "szucsiki",
+        "Client": "Jellyfin iOS",
+        "LastActivityDate": "2026-04-22T09:59:59.3553918Z",
+        "LastPlaybackCheckIn": "2026-04-22T09:59:55.3538876Z",
+        "DeviceName": "iPhone",
+        "NowPlayingItem": {
+            "Name": "Micimackó és a zelefánt",
+            "OriginalTitle": "Pooh's Heffalump Movie",
+            "ServerId": "5044f8c0502743b09777364723ddc2e0",
+            "Id": "713df22e97bfe67c4efc176773fe1114",
+            "DateCreated": "2026-03-20T08:09:53.4329053Z",
+            "Container": "mov,mp4,m4a,3gp,3g2,mj2",
+            "PremiereDate": "2005-02-11T00:00:00.0000000Z",
+            "ExternalUrls": [
+                {
+                    "Name": "IMDb",
+                    "Url": "https://www.imdb.com/title/tt0407121"
+                },
+                {
+                    "Name": "TMDB",
+                    "Url": "https://www.themoviedb.org/movie/13682"
+                }
+            ],
+            "CriticRating": 80,
+            "Path": "/movies/Poohs Heffalump Movie (2005) [imdbid-tt0407121]/crls-poohs.heffalump.movie.1080p.mkv",
+            "EnableMediaSourceDisplay": true,
+            "OfficialRating": "HU-KN",
+            "ChannelId": null,
+            "Overview": "A Százholdas Pagony békéjét súlyos lábak dobogása zavarja meg. Valami félelmetes közeledik! Ami pedig félelmetes, az talán a Zelefánt. A Zelefántot ugyan még senki sem látta, de már mindenki róla beszél. Régi barátaink, Micimackó, Malacka, Nyuszi, Tigris, Füles és a többiek a szörnyű eseményre készülnek: amikor szembe kell majd nézniük azzal, amiről mindenki tud valami fontosat, csak azt nem tudja senki, hogy mi lehet az. A Százholdas Pagony lakói elindulnak, hogy elfogják a rettegett lényt.",
+            "Taglines": [],
+            "Genres": [
+                "Családi",
+                "Animációs",
+                "Vígjáték",
+                "Fantasy"
+            ],
+            "CommunityRating": 6.816,
+            "RunTimeTicks": 144000000,
+            "ProductionYear": 2005,
+            "ProviderIds": {
+                "Imdb": "tt0407121",
+                "Tmdb": "13682"
+            },
+            "IsHD": true,
+            "IsFolder": false,
+            "ParentId": "5b0d238e2f6d5609b709d7b76300e217",
+            "Type": "Movie",
+            "Studios": [
+                {
+                    "Name": "DisneyToon Studios",
+                    "Id": "4a76a5eee187d2bb82a19af6aae2254c"
+                },
+                {
+                    "Name": "Walt Disney Pictures",
+                    "Id": "ff966337d51b0e006da6e16df7cb7ca1"
+                }
+            ],
+            "GenreItems": [
+                {
+                    "Name": "Családi",
+                    "Id": "4b7aa69d291e89c741d73370b8386556"
+                },
+                {
+                    "Name": "Animációs",
+                    "Id": "bebfcd1e3b4d491c1d0c309fa4af860e"
+                },
+                {
+                    "Name": "Vígjáték",
+                    "Id": "b641e1e55280c9a3d7780934f9424002"
+                },
+                {
+                    "Name": "Fantasy",
+                    "Id": "a30dcc65be22eb3c21c03f7c1c7a57d1"
+                }
+            ],
+            "LocalTrailerCount": 0,
+            "SpecialFeatureCount": 0,
+            "PrimaryImageAspectRatio": 0.6666666666666666,
+            "MediaStreams": [
+                {
+                    "Codec": "h264",
+                    "CodecTag": "avc1",
+                    "Language": "und",
+                    "ColorSpace": "bt709",
+                    "ColorTransfer": "bt709",
+                    "ColorPrimaries": "bt709",
+                    "TimeBase": "1/24000",
+                    "VideoRange": "SDR",
+                    "VideoRangeType": "SDR",
+                    "AudioSpatialFormat": "None",
+                    "DisplayTitle": "1080p H264 SDR",
+                    "NalLengthSize": "4",
+                    "IsInterlaced": false,
+                    "IsAVC": true,
+                    "BitRate": 137779,
+                    "BitDepth": 8,
+                    "RefFrames": 1,
+                    "IsDefault": true,
+                    "IsForced": false,
+                    "IsHearingImpaired": false,
+                    "Height": 1024,
+                    "Width": 1536,
+                    "AverageFrameRate": 23.976025,
+                    "RealFrameRate": 23.976025,
+                    "ReferenceFrameRate": 23.976025,
+                    "Profile": "High",
+                    "Type": "Video",
+                    "AspectRatio": "1.5:1",
+                    "Index": 0,
+                    "IsExternal": false,
+                    "IsTextSubtitleStream": false,
+                    "SupportsExternalStream": false,
+                    "PixelFormat": "yuv420p",
+                    "Level": 40,
+                    "IsAnamorphic": false
+                },
+                {
+                    "Codec": "aac",
+                    "CodecTag": "mp4a",
+                    "Language": "und",
+                    "TimeBase": "1/48000",
+                    "VideoRange": "Unknown",
+                    "VideoRangeType": "Unknown",
+                    "AudioSpatialFormat": "None",
+                    "LocalizedDefault": "Default",
+                    "LocalizedExternal": "External",
+                    "DisplayTitle": "AAC - Stereo - Default",
+                    "IsInterlaced": false,
+                    "IsAVC": false,
+                    "ChannelLayout": "stereo",
+                    "BitRate": 2278,
+                    "Channels": 2,
+                    "SampleRate": 48000,
+                    "IsDefault": true,
+                    "IsForced": false,
+                    "IsHearingImpaired": false,
+                    "Profile": "LC",
+                    "Type": "Audio",
+                    "Index": 1,
+                    "IsExternal": false,
+                    "IsTextSubtitleStream": false,
+                    "SupportsExternalStream": false,
+                    "Level": 0
+                }
+            ],
+            "VideoType": "VideoFile",
+            "ImageTags": {
+                "Thumb": "8cf3bdf44baaa6d9ec62a414b66916ea",
+                "Primary": "3468b6d8591957f36c8db025a538a322",
+                "Logo": "bcb9c7b516c11b56e2d127c954c66dbd"
+            },
+            "BackdropImageTags": [
+                "b5df45a038e8e927a67a4cea6dfc65be"
+            ],
+            "ImageBlurHashes": {
+                "Backdrop": {
+                    "b5df45a038e8e927a67a4cea6dfc65be": "WYOpod_2_3D+IU-o~qV@Rlt8s*Rjs*V[IrxunhR%?aogogkCRjt6"
+                },
+                "Thumb": {
+                    "8cf3bdf44baaa6d9ec62a414b66916ea": "WhOM]T4Tjq?boHxZ_4xaROROaxNH%KjEV@RjM{kC~pIUM{xuRkof"
+                },
+                "Primary": {
+                    "3468b6d8591957f36c8db025a538a322": "dcLqU.wa~p.8^lxZM_V@?axtt7jG_Nb0X9Sg.8tSo#ad"
+                },
+                "Logo": {
+                    "bcb9c7b516c11b56e2d127c954c66dbd": "HnO3;N-:Rj%Mxtt6xta#t6~px[M{tQWCWBj[Rjay"
+                }
+            },
+            "Chapters": [],
+            "Trickplay": {},
+            "LocationType": "FileSystem",
+            "MediaType": "Video",
+            "Width": 1536,
+            "Height": 1024
+        },
+        "DeviceId": "61c11407-f99a-4455-bba5-9f5175afcfc9",
+        "ApplicationVersion": "1.7.0",
+        "IsActive": true,
+        "SupportsMediaControl": true,
+        "SupportsRemoteControl": true,
+        "NowPlayingQueue": [
+            {
+                "Id": "713df22e97bfe67c4efc176773fe1114",
+                "PlaylistItemId": "playlistItem1"
+            }
+        ],
+        "NowPlayingQueueFullItems": [
+            {
+                "Name": "Micimackó és a zelefánt",
+                "OriginalTitle": "Pooh's Heffalump Movie",
+                "ServerId": "5044f8c0502743b09777364723ddc2e0",
+                "Id": "713df22e97bfe67c4efc176773fe1114",
+                "Etag": "d27b8e6873220f02463cab3934d015ac",
+                "DateCreated": "2026-03-20T08:09:53.4329053Z",
+                "CanDelete": true,
+                "CanDownload": true,
+                "Container": "mov,mp4,m4a,3gp,3g2,mj2",
+                "SortName": "micimacko es zelefant",
+                "PremiereDate": "2005-02-11T00:00:00.0000000Z",
+                "ExternalUrls": [
+                    {
+                        "Name": "IMDb",
+                        "Url": "https://www.imdb.com/title/tt0407121"
+                    },
+                    {
+                        "Name": "TMDB",
+                        "Url": "https://www.themoviedb.org/movie/13682"
+                    }
+                ],
+                "MediaSources": [
+                    {
+                        "Protocol": "File",
+                        "Id": "713df22e97bfe67c4efc176773fe1114",
+                        "Path": "/placeholders/jellyfin-placeholder.mp4",
+                        "Type": "Default",
+                        "Container": "mp4",
+                        "Size": 263455,
+                        "Name": "crls-poohs.heffalump.movie.1080p",
+                        "IsRemote": false,
+                        "ETag": "2eef7b1e4a384109e1aa9a499b4393f2",
+                        "RunTimeTicks": 144000000,
+                        "ReadAtNativeFramerate": false,
+                        "IgnoreDts": false,
+                        "IgnoreIndex": false,
+                        "GenPtsInput": false,
+                        "SupportsTranscoding": true,
+                        "SupportsDirectStream": true,
+                        "SupportsDirectPlay": true,
+                        "IsInfiniteStream": false,
+                        "UseMostCompatibleTranscodingProfile": false,
+                        "RequiresOpening": false,
+                        "RequiresClosing": false,
+                        "RequiresLooping": false,
+                        "SupportsProbing": true,
+                        "VideoType": "VideoFile",
+                        "MediaStreams": [
+                            {
+                                "Codec": "h264",
+                                "CodecTag": "avc1",
+                                "Language": "und",
+                                "ColorSpace": "bt709",
+                                "ColorTransfer": "bt709",
+                                "ColorPrimaries": "bt709",
+                                "TimeBase": "1/24000",
+                                "VideoRange": "SDR",
+                                "VideoRangeType": "SDR",
+                                "AudioSpatialFormat": "None",
+                                "DisplayTitle": "1080p H264 SDR",
+                                "NalLengthSize": "4",
+                                "IsInterlaced": false,
+                                "IsAVC": true,
+                                "BitRate": 137779,
+                                "BitDepth": 8,
+                                "RefFrames": 1,
+                                "IsDefault": true,
+                                "IsForced": false,
+                                "IsHearingImpaired": false,
+                                "Height": 1024,
+                                "Width": 1536,
+                                "AverageFrameRate": 23.976025,
+                                "RealFrameRate": 23.976025,
+                                "ReferenceFrameRate": 23.976025,
+                                "Profile": "High",
+                                "Type": "Video",
+                                "AspectRatio": "1.5:1",
+                                "Index": 0,
+                                "IsExternal": false,
+                                "IsTextSubtitleStream": false,
+                                "SupportsExternalStream": false,
+                                "PixelFormat": "yuv420p",
+                                "Level": 40,
+                                "IsAnamorphic": false
+                            },
+                            {
+                                "Codec": "aac",
+                                "CodecTag": "mp4a",
+                                "Language": "und",
+                                "TimeBase": "1/48000",
+                                "VideoRange": "Unknown",
+                                "VideoRangeType": "Unknown",
+                                "AudioSpatialFormat": "None",
+                                "LocalizedDefault": "Default",
+                                "LocalizedExternal": "External",
+                                "DisplayTitle": "AAC - Stereo - Default",
+                                "IsInterlaced": false,
+                                "IsAVC": false,
+                                "ChannelLayout": "stereo",
+                                "BitRate": 2278,
+                                "Channels": 2,
+                                "SampleRate": 48000,
+                                "IsDefault": true,
+                                "IsForced": false,
+                                "IsHearingImpaired": false,
+                                "Profile": "LC",
+                                "Type": "Audio",
+                                "Index": 1,
+                                "IsExternal": false,
+                                "IsTextSubtitleStream": false,
+                                "SupportsExternalStream": false,
+                                "Level": 0
+                            }
+                        ],
+                        "MediaAttachments": [],
+                        "Formats": [],
+                        "Bitrate": 146363,
+                        "RequiredHttpHeaders": {},
+                        "TranscodingSubProtocol": "http",
+                        "HasSegments": false
+                    }
+                ],
+                "CriticRating": 80,
+                "ProductionLocations": [
+                    "United States of America"
+                ],
+                "Path": "/movies/Poohs Heffalump Movie (2005) [imdbid-tt0407121]/crls-poohs.heffalump.movie.1080p.mkv",
+                "EnableMediaSourceDisplay": true,
+                "OfficialRating": "HU-KN",
+                "ChannelId": null,
+                "Overview": "A Százholdas Pagony békéjét súlyos lábak dobogása zavarja meg. Valami félelmetes közeledik! Ami pedig félelmetes, az talán a Zelefánt. A Zelefántot ugyan még senki sem látta, de már mindenki róla beszél. Régi barátaink, Micimackó, Malacka, Nyuszi, Tigris, Füles és a többiek a szörnyű eseményre készülnek: amikor szembe kell majd nézniük azzal, amiről mindenki tud valami fontosat, csak azt nem tudja senki, hogy mi lehet az. A Százholdas Pagony lakói elindulnak, hogy elfogják a rettegett lényt.",
+                "Taglines": [],
+                "Genres": [
+                    "Családi",
+                    "Animációs",
+                    "Vígjáték",
+                    "Fantasy"
+                ],
+                "CommunityRating": 6.816,
+                "RunTimeTicks": 144000000,
+                "ProductionYear": 2005,
+                "RemoteTrailers": [],
+                "ProviderIds": {
+                    "Imdb": "tt0407121",
+                    "Tmdb": "13682"
+                },
+                "IsHD": true,
+                "IsFolder": false,
+                "ParentId": "5b0d238e2f6d5609b709d7b76300e217",
+                "Type": "Movie",
+                "People": [
+                    {
+                        "Name": "Jim Cummings",
+                        "Id": "a316e0fb9013baa036138b57aa01398a",
+                        "Role": "Winnie-the-Pooh / Tigger (voice)",
+                        "Type": "Actor",
+                        "PrimaryImageTag": "35395a8d900f4ff4432c2ef0c8f8e16f",
+                        "ImageBlurHashes": {
+                            "Primary": {
+                                "35395a8d900f4ff4432c2ef0c8f8e16f": "dIA9$qRj0zxa^jRjEMt7ELofxGaeEMj[xFWBS2ays:bH"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "John Fiedler",
+                        "Id": "0994b72bde961f577c9ef0cc37296a8b",
+                        "Role": "Piglet (voice)",
+                        "Type": "Actor",
+                        "PrimaryImageTag": "5f5f41a3d1d4cd2e50da1b67e627fe3f",
+                        "ImageBlurHashes": {
+                            "Primary": {
+                                "5f5f41a3d1d4cd2e50da1b67e627fe3f": "dIHoI6?b00WB-;Rj-;M{IURjD%M{t7t7-;t7?bIUM{t7"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "Kath Soucie",
+                        "Id": "cad392cadb6cf6eeada47aefe14f41c2",
+                        "Role": "Kanga (voice)",
+                        "Type": "Actor",
+                        "PrimaryImageTag": "f35bb2b9a998860a2ce772264d6f5cb9",
+                        "ImageBlurHashes": {
+                            "Primary": {
+                                "f35bb2b9a998860a2ce772264d6f5cb9": "dIK,$c_0G:?sKHkpK19u1bJ8WUWDk*EMx@xt9ubbobV@"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "Nikita Hopkins",
+                        "Id": "12bd56271b2afb96fbc0c9aaab6e194e",
+                        "Role": "Roo (voice)",
+                        "Type": "Actor",
+                        "PrimaryImageTag": "67098f167722144f985e83045333bca7",
+                        "ImageBlurHashes": {
+                            "Primary": {
+                                "67098f167722144f985e83045333bca7": "dWHnmM~Xog-pNO-=x]kDS6xb%LWBxZafs,WAD+RQRjM{"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "Ken Sansom",
+                        "Id": "53631cb136067d8b0150f504fe5be9d5",
+                        "Role": "Rabbit (voice)",
+                        "Type": "Actor",
+                        "PrimaryImageTag": "51233726236c203a22bbf2a4108b5035",
+                        "ImageBlurHashes": {
+                            "Primary": {
+                                "51233726236c203a22bbf2a4108b5035": "dtI:^1xa0ff6r=axbbs:JAWVniWVM{WCW;R*M|WBxZs:"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "Peter Cullen",
+                        "Id": "0212ebee3b4106482369b3f0e0c51b3f",
+                        "Role": "Eeyore (voice)",
+                        "Type": "Actor",
+                        "PrimaryImageTag": "dc2963f09e40adf2db03392d899444ac",
+                        "ImageBlurHashes": {
+                            "Primary": {
+                                "dc2963f09e40adf2db03392d899444ac": "dTGt?D-;0fIp=_X5xut7t-o}$MWCtloexat7%Ms.xas:"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "Kyle Stanger",
+                        "Id": "a4c6a72231a99e2c9de8f1b46c55f2be",
+                        "Role": "Lumpy the Heffalump (voice)",
+                        "Type": "Actor",
+                        "ImageBlurHashes": {
+                            "Primary": {}
+                        }
+                    },
+                    {
+                        "Name": "Brenda Blethyn",
+                        "Id": "10786b4aa8b0cdf37e3757e5f65a9084",
+                        "Role": "Mama Heffalump (voice)",
+                        "Type": "Actor",
+                        "PrimaryImageTag": "276e97900ff01ac4eef249f2fc1dd26c",
+                        "ImageBlurHashes": {
+                            "Primary": {
+                                "276e97900ff01ac4eef249f2fc1dd26c": "dWKwOl=|T{OD~pj?-;s.5lS2wJs:?vog%Moz%gRjxuoL"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "Jessica Koplos",
+                        "Id": "12e229f350ef3433668f3ea4308e061c",
+                        "Role": "Producer",
+                        "Type": "Producer",
+                        "ImageBlurHashes": {
+                            "Primary": {}
+                        }
+                    }
+                ],
+                "Studios": [
+                    {
+                        "Name": "DisneyToon Studios",
+                        "Id": "4a76a5eee187d2bb82a19af6aae2254c"
+                    },
+                    {
+                        "Name": "Walt Disney Pictures",
+                        "Id": "ff966337d51b0e006da6e16df7cb7ca1"
+                    }
+                ],
+                "GenreItems": [
+                    {
+                        "Name": "Családi",
+                        "Id": "4b7aa69d291e89c741d73370b8386556"
+                    },
+                    {
+                        "Name": "Animációs",
+                        "Id": "bebfcd1e3b4d491c1d0c309fa4af860e"
+                    },
+                    {
+                        "Name": "Vígjáték",
+                        "Id": "b641e1e55280c9a3d7780934f9424002"
+                    },
+                    {
+                        "Name": "Fantasy",
+                        "Id": "a30dcc65be22eb3c21c03f7c1c7a57d1"
+                    }
+                ],
+                "LocalTrailerCount": 0,
+                "SpecialFeatureCount": 0,
+                "DisplayPreferencesId": "dbf7709c41faaa746463d67978eb863d",
+                "Tags": [
+                    "cartoon",
+                    "cartoon bear"
+                ],
+                "PrimaryImageAspectRatio": 0.6666666666666666,
+                "MediaStreams": [
+                    {
+                        "Codec": "h264",
+                        "CodecTag": "avc1",
+                        "Language": "und",
+                        "ColorSpace": "bt709",
+                        "ColorTransfer": "bt709",
+                        "ColorPrimaries": "bt709",
+                        "TimeBase": "1/24000",
+                        "VideoRange": "SDR",
+                        "VideoRangeType": "SDR",
+                        "AudioSpatialFormat": "None",
+                        "DisplayTitle": "1080p H264 SDR",
+                        "NalLengthSize": "4",
+                        "IsInterlaced": false,
+                        "IsAVC": true,
+                        "BitRate": 137779,
+                        "BitDepth": 8,
+                        "RefFrames": 1,
+                        "IsDefault": true,
+                        "IsForced": false,
+                        "IsHearingImpaired": false,
+                        "Height": 1024,
+                        "Width": 1536,
+                        "AverageFrameRate": 23.976025,
+                        "RealFrameRate": 23.976025,
+                        "ReferenceFrameRate": 23.976025,
+                        "Profile": "High",
+                        "Type": "Video",
+                        "AspectRatio": "1.5:1",
+                        "Index": 0,
+                        "IsExternal": false,
+                        "IsTextSubtitleStream": false,
+                        "SupportsExternalStream": false,
+                        "PixelFormat": "yuv420p",
+                        "Level": 40,
+                        "IsAnamorphic": false
+                    },
+                    {
+                        "Codec": "aac",
+                        "CodecTag": "mp4a",
+                        "Language": "und",
+                        "TimeBase": "1/48000",
+                        "VideoRange": "Unknown",
+                        "VideoRangeType": "Unknown",
+                        "AudioSpatialFormat": "None",
+                        "LocalizedDefault": "Default",
+                        "LocalizedExternal": "External",
+                        "DisplayTitle": "AAC - Stereo - Default",
+                        "IsInterlaced": false,
+                        "IsAVC": false,
+                        "ChannelLayout": "stereo",
+                        "BitRate": 2278,
+                        "Channels": 2,
+                        "SampleRate": 48000,
+                        "IsDefault": true,
+                        "IsForced": false,
+                        "IsHearingImpaired": false,
+                        "Profile": "LC",
+                        "Type": "Audio",
+                        "Index": 1,
+                        "IsExternal": false,
+                        "IsTextSubtitleStream": false,
+                        "SupportsExternalStream": false,
+                        "Level": 0
+                    }
+                ],
+                "VideoType": "VideoFile",
+                "ImageTags": {
+                    "Thumb": "8cf3bdf44baaa6d9ec62a414b66916ea",
+                    "Primary": "3468b6d8591957f36c8db025a538a322",
+                    "Logo": "bcb9c7b516c11b56e2d127c954c66dbd"
+                },
+                "BackdropImageTags": [
+                    "b5df45a038e8e927a67a4cea6dfc65be"
+                ],
+                "ImageBlurHashes": {
+                    "Backdrop": {
+                        "b5df45a038e8e927a67a4cea6dfc65be": "WYOpod_2_3D+IU-o~qV@Rlt8s*Rjs*V[IrxunhR%?aogogkCRjt6"
+                    },
+                    "Thumb": {
+                        "8cf3bdf44baaa6d9ec62a414b66916ea": "WhOM]T4Tjq?boHxZ_4xaROROaxNH%KjEV@RjM{kC~pIUM{xuRkof"
+                    },
+                    "Primary": {
+                        "3468b6d8591957f36c8db025a538a322": "dcLqU.wa~p.8^lxZM_V@?axtt7jG_Nb0X9Sg.8tSo#ad"
+                    },
+                    "Logo": {
+                        "bcb9c7b516c11b56e2d127c954c66dbd": "HnO3;N-:Rj%Mxtt6xta#t6~px[M{tQWCWBj[Rjay"
+                    }
+                },
+                "Chapters": [],
+                "Trickplay": {},
+                "LocationType": "FileSystem",
+                "MediaType": "Video",
+                "LockedFields": [],
+                "LockData": false,
+                "Width": 1536,
+                "Height": 1024
+            }
+        ],
+        "HasCustomDeviceName": false,
+        "PlaylistItemId": "playlistItem1",
+        "ServerId": "5044f8c0502743b09777364723ddc2e0",
+        "SupportedCommands": [
+            "MoveUp",
+            "MoveDown",
+            "MoveLeft",
+            "MoveRight",
+            "PageUp",
+            "PageDown",
+            "PreviousLetter",
+            "NextLetter",
+            "ToggleOsd",
+            "ToggleContextMenu",
+            "Select",
+            "Back",
+            "SendKey",
+            "SendString",
+            "GoHome",
+            "GoToSettings",
+            "VolumeUp",
+            "VolumeDown",
+            "Mute",
+            "Unmute",
+            "ToggleMute",
+            "SetVolume",
+            "SetAudioStreamIndex",
+            "SetSubtitleStreamIndex",
+            "DisplayContent",
+            "GoToSearch",
+            "DisplayMessage",
+            "SetRepeatMode",
+            "SetShuffleQueue",
+            "ChannelUp",
+            "ChannelDown",
+            "PlayMediaSource",
+            "PlayTrailers"
+        ]
+    },
+    {
+        "PlayState": {
+            "PositionTicks": 50002080,
+            "CanSeek": true,
+            "IsPaused": false,
+            "IsMuted": false,
+            "VolumeLevel": 100,
+            "AudioStreamIndex": 1,
+            "MediaSourceId": "525f024d2ab59d90dd201690c7d5b91f",
+            "PlayMethod": "DirectPlay",
+            "RepeatMode": "RepeatNone",
+            "PlaybackOrder": "Default"
+        },
+        "AdditionalUsers": [],
+        "Capabilities": {
+            "PlayableMediaTypes": [
+                "Audio",
+                "Video"
+            ],
+            "SupportedCommands": [
+                "MoveUp",
+                "MoveDown",
+                "MoveLeft",
+                "MoveRight",
+                "PageUp",
+                "PageDown",
+                "PreviousLetter",
+                "NextLetter",
+                "ToggleOsd",
+                "ToggleContextMenu",
+                "Select",
+                "Back",
+                "SendKey",
+                "SendString",
+                "GoHome",
+                "GoToSettings",
+                "VolumeUp",
+                "VolumeDown",
+                "Mute",
+                "Unmute",
+                "ToggleMute",
+                "SetVolume",
+                "SetAudioStreamIndex",
+                "SetSubtitleStreamIndex",
+                "DisplayContent",
+                "GoToSearch",
+                "DisplayMessage",
+                "SetRepeatMode",
+                "SetShuffleQueue",
+                "ChannelUp",
+                "ChannelDown",
+                "PlayMediaSource",
+                "PlayTrailers"
+            ],
+            "SupportsMediaControl": true,
+            "SupportsPersistentIdentifier": false
+        },
+        "RemoteEndPoint": "192.168.0.112",
+        "PlayableMediaTypes": [
+            "Audio",
+            "Video"
+        ],
+        "Id": "f026207c03a0cbb4258bd8b15694ef4d",
+        "UserId": "e3cc30114c354b68995e36c06793dedc",
+        "UserName": "szucsiki",
+        "Client": "Jellyfin Web",
+        "LastActivityDate": "2026-04-22T09:59:59.3553918Z",
+        "LastPlaybackCheckIn": "2026-04-22T09:59:54.3561617Z",
+        "DeviceName": "Firefox",
+        "NowPlayingItem": {
+            "Name": "... hogy szaladnak a fák!",
+            "OriginalTitle": "... hogy szaladnak a fák!",
+            "ServerId": "5044f8c0502743b09777364723ddc2e0",
+            "Id": "525f024d2ab59d90dd201690c7d5b91f",
+            "DateCreated": "2026-03-20T08:09:53.4329053Z",
+            "Container": "mov,mp4,m4a,3gp,3g2,mj2",
+            "PremiereDate": "1966-04-15T00:00:00.0000000Z",
+            "ExternalUrls": [
+                {
+                    "Name": "IMDb",
+                    "Url": "https://www.imdb.com/title/tt0133009"
+                },
+                {
+                    "Name": "TMDB",
+                    "Url": "https://www.themoviedb.org/movie/336092"
+                }
+            ],
+            "Path": "/movies/hogy szaladnak a fák! mkv [imdbid-tt0133009]/hogy szaladnak a fák!.mkv",
+            "EnableMediaSourceDisplay": true,
+            "ChannelId": null,
+            "Overview": "Simon, a fiatal történész tizenegy év után látogat haza gyerekkora balatoni falujába, Lina nénihez, a nevelőanyjához. Felkavarja, amit lát: az öregaszony keserves és megrázó mindennapjait, csöndes szomorúságát, és felkavarják az emlékek, s mindaz, amiről nem is tudott, s amit felejteni látszott.",
+            "Taglines": [],
+            "Genres": [
+                "Dráma"
+            ],
+            "CommunityRating": 7.2,
+            "RunTimeTicks": 144000000,
+            "ProductionYear": 1966,
+            "ProviderIds": {
+                "Imdb": "tt0133009",
+                "Tmdb": "336092"
+            },
+            "IsHD": true,
+            "IsFolder": false,
+            "ParentId": "5b0d238e2f6d5609b709d7b76300e217",
+            "Type": "Movie",
+            "Studios": [
+                {
+                    "Name": "Mafilm",
+                    "Id": "59068d9a0dbfe91bf2ff492004499555"
+                }
+            ],
+            "GenreItems": [
+                {
+                    "Name": "Dráma",
+                    "Id": "4791ebd2a27d5f729cfa9b3dc894a18d"
+                }
+            ],
+            "LocalTrailerCount": 0,
+            "SpecialFeatureCount": 0,
+            "PrimaryImageAspectRatio": 0.6666666666666666,
+            "MediaStreams": [
+                {
+                    "Codec": "h264",
+                    "CodecTag": "avc1",
+                    "Language": "und",
+                    "ColorSpace": "bt709",
+                    "ColorTransfer": "bt709",
+                    "ColorPrimaries": "bt709",
+                    "TimeBase": "1/24000",
+                    "VideoRange": "SDR",
+                    "VideoRangeType": "SDR",
+                    "AudioSpatialFormat": "None",
+                    "DisplayTitle": "1080p H264 SDR",
+                    "NalLengthSize": "4",
+                    "IsInterlaced": false,
+                    "IsAVC": true,
+                    "BitRate": 137779,
+                    "BitDepth": 8,
+                    "RefFrames": 1,
+                    "IsDefault": true,
+                    "IsForced": false,
+                    "IsHearingImpaired": false,
+                    "Height": 1024,
+                    "Width": 1536,
+                    "AverageFrameRate": 23.976025,
+                    "RealFrameRate": 23.976025,
+                    "ReferenceFrameRate": 23.976025,
+                    "Profile": "High",
+                    "Type": "Video",
+                    "AspectRatio": "1.5:1",
+                    "Index": 0,
+                    "IsExternal": false,
+                    "IsTextSubtitleStream": false,
+                    "SupportsExternalStream": false,
+                    "PixelFormat": "yuv420p",
+                    "Level": 40,
+                    "IsAnamorphic": false
+                },
+                {
+                    "Codec": "aac",
+                    "CodecTag": "mp4a",
+                    "Language": "und",
+                    "TimeBase": "1/48000",
+                    "VideoRange": "Unknown",
+                    "VideoRangeType": "Unknown",
+                    "AudioSpatialFormat": "None",
+                    "LocalizedDefault": "Default",
+                    "LocalizedExternal": "External",
+                    "DisplayTitle": "AAC - Stereo - Default",
+                    "IsInterlaced": false,
+                    "IsAVC": false,
+                    "ChannelLayout": "stereo",
+                    "BitRate": 2278,
+                    "Channels": 2,
+                    "SampleRate": 48000,
+                    "IsDefault": true,
+                    "IsForced": false,
+                    "IsHearingImpaired": false,
+                    "Profile": "LC",
+                    "Type": "Audio",
+                    "Index": 1,
+                    "IsExternal": false,
+                    "IsTextSubtitleStream": false,
+                    "SupportsExternalStream": false,
+                    "Level": 0
+                }
+            ],
+            "VideoType": "VideoFile",
+            "ImageTags": {
+                "Primary": "880ab042552847b454f05f7f1b38736c"
+            },
+            "BackdropImageTags": [],
+            "ImageBlurHashes": {
+                "Primary": {
+                    "880ab042552847b454f05f7f1b38736c": "dNFh^[OFSh^k0:^+-po}9aV?%1bc~CoykBR5tS%2xZ%M"
+                }
+            },
+            "Chapters": [],
+            "Trickplay": {},
+            "LocationType": "FileSystem",
+            "MediaType": "Video",
+            "Width": 1536,
+            "Height": 1024
+        },
+        "DeviceId": "TW96aWxsYS81LjAgKFgxMTsgTGludXggeDg2XzY0OyBydjoxNDguMCkgR2Vja28vMjAxMDAxMDEgRmlyZWZveC8xNDguMHwxNzczOTk0NTIwNDY0",
+        "ApplicationVersion": "10.11.8",
+        "IsActive": true,
+        "SupportsMediaControl": true,
+        "SupportsRemoteControl": true,
+        "NowPlayingQueue": [
+            {
+                "Id": "525f024d2ab59d90dd201690c7d5b91f",
+                "PlaylistItemId": "playlistItem28"
+            }
+        ],
+        "NowPlayingQueueFullItems": [
+            {
+                "Name": "... hogy szaladnak a fák!",
+                "OriginalTitle": "... hogy szaladnak a fák!",
+                "ServerId": "5044f8c0502743b09777364723ddc2e0",
+                "Id": "525f024d2ab59d90dd201690c7d5b91f",
+                "Etag": "747a3294b5b69e4eb4d8e6761c04e611",
+                "DateCreated": "2026-03-20T08:09:53.4329053Z",
+                "CanDelete": true,
+                "CanDownload": true,
+                "Container": "mov,mp4,m4a,3gp,3g2,mj2",
+                "SortName": "    hogy szaladnak fak!",
+                "PremiereDate": "1966-04-15T00:00:00.0000000Z",
+                "ExternalUrls": [
+                    {
+                        "Name": "IMDb",
+                        "Url": "https://www.imdb.com/title/tt0133009"
+                    },
+                    {
+                        "Name": "TMDB",
+                        "Url": "https://www.themoviedb.org/movie/336092"
+                    }
+                ],
+                "MediaSources": [
+                    {
+                        "Protocol": "File",
+                        "Id": "525f024d2ab59d90dd201690c7d5b91f",
+                        "Path": "/placeholders/jellyfin-placeholder.mp4",
+                        "Type": "Default",
+                        "Container": "mp4",
+                        "Size": 263455,
+                        "Name": "hogy szaladnak a fák!",
+                        "IsRemote": false,
+                        "ETag": "2eef7b1e4a384109e1aa9a499b4393f2",
+                        "RunTimeTicks": 144000000,
+                        "ReadAtNativeFramerate": false,
+                        "IgnoreDts": false,
+                        "IgnoreIndex": false,
+                        "GenPtsInput": false,
+                        "SupportsTranscoding": true,
+                        "SupportsDirectStream": true,
+                        "SupportsDirectPlay": true,
+                        "IsInfiniteStream": false,
+                        "UseMostCompatibleTranscodingProfile": false,
+                        "RequiresOpening": false,
+                        "RequiresClosing": false,
+                        "RequiresLooping": false,
+                        "SupportsProbing": true,
+                        "VideoType": "VideoFile",
+                        "MediaStreams": [
+                            {
+                                "Codec": "h264",
+                                "CodecTag": "avc1",
+                                "Language": "und",
+                                "ColorSpace": "bt709",
+                                "ColorTransfer": "bt709",
+                                "ColorPrimaries": "bt709",
+                                "TimeBase": "1/24000",
+                                "VideoRange": "SDR",
+                                "VideoRangeType": "SDR",
+                                "AudioSpatialFormat": "None",
+                                "DisplayTitle": "1080p H264 SDR",
+                                "NalLengthSize": "4",
+                                "IsInterlaced": false,
+                                "IsAVC": true,
+                                "BitRate": 137779,
+                                "BitDepth": 8,
+                                "RefFrames": 1,
+                                "IsDefault": true,
+                                "IsForced": false,
+                                "IsHearingImpaired": false,
+                                "Height": 1024,
+                                "Width": 1536,
+                                "AverageFrameRate": 23.976025,
+                                "RealFrameRate": 23.976025,
+                                "ReferenceFrameRate": 23.976025,
+                                "Profile": "High",
+                                "Type": "Video",
+                                "AspectRatio": "1.5:1",
+                                "Index": 0,
+                                "IsExternal": false,
+                                "IsTextSubtitleStream": false,
+                                "SupportsExternalStream": false,
+                                "PixelFormat": "yuv420p",
+                                "Level": 40,
+                                "IsAnamorphic": false
+                            },
+                            {
+                                "Codec": "aac",
+                                "CodecTag": "mp4a",
+                                "Language": "und",
+                                "TimeBase": "1/48000",
+                                "VideoRange": "Unknown",
+                                "VideoRangeType": "Unknown",
+                                "AudioSpatialFormat": "None",
+                                "LocalizedDefault": "Default",
+                                "LocalizedExternal": "External",
+                                "DisplayTitle": "AAC - Stereo - Default",
+                                "IsInterlaced": false,
+                                "IsAVC": false,
+                                "ChannelLayout": "stereo",
+                                "BitRate": 2278,
+                                "Channels": 2,
+                                "SampleRate": 48000,
+                                "IsDefault": true,
+                                "IsForced": false,
+                                "IsHearingImpaired": false,
+                                "Profile": "LC",
+                                "Type": "Audio",
+                                "Index": 1,
+                                "IsExternal": false,
+                                "IsTextSubtitleStream": false,
+                                "SupportsExternalStream": false,
+                                "Level": 0
+                            }
+                        ],
+                        "MediaAttachments": [],
+                        "Formats": [],
+                        "Bitrate": 146363,
+                        "RequiredHttpHeaders": {},
+                        "TranscodingSubProtocol": "http",
+                        "HasSegments": false
+                    }
+                ],
+                "ProductionLocations": [
+                    "Hungary"
+                ],
+                "Path": "/movies/hogy szaladnak a fák! mkv [imdbid-tt0133009]/hogy szaladnak a fák!.mkv",
+                "EnableMediaSourceDisplay": true,
+                "ChannelId": null,
+                "Overview": "Simon, a fiatal történész tizenegy év után látogat haza gyerekkora balatoni falujába, Lina nénihez, a nevelőanyjához. Felkavarja, amit lát: az öregaszony keserves és megrázó mindennapjait, csöndes szomorúságát, és felkavarják az emlékek, s mindaz, amiről nem is tudott, s amit felejteni látszott.",
+                "Taglines": [],
+                "Genres": [
+                    "Dráma"
+                ],
+                "CommunityRating": 7.2,
+                "RunTimeTicks": 144000000,
+                "ProductionYear": 1966,
+                "RemoteTrailers": [],
+                "ProviderIds": {
+                    "Imdb": "tt0133009",
+                    "Tmdb": "336092"
+                },
+                "IsHD": true,
+                "IsFolder": false,
+                "ParentId": "5b0d238e2f6d5609b709d7b76300e217",
+                "Type": "Movie",
+                "People": [
+                    {
+                        "Name": "István Iglódi",
+                        "Id": "d3f0859821ab9a247024105269d08adc",
+                        "Role": "Simon",
+                        "Type": "Actor",
+                        "PrimaryImageTag": "5856601f2b0c7878995dab535374c0dd",
+                        "ImageBlurHashes": {
+                            "Primary": {
+                                "5856601f2b0c7878995dab535374c0dd": "dTFrVA~qIUDiRjM{RjWVD%Rj%M%f%2t7RjRjxut7jZae"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "Dajka Margit",
+                        "Id": "c9ed6c696f77ede9b0f3ce68df7932fb",
+                        "Role": "Vass Mari",
+                        "Type": "Actor",
+                        "PrimaryImageTag": "e120433c8b248c1acab529d80fff91e2",
+                        "ImageBlurHashes": {
+                            "Primary": {
+                                "e120433c8b248c1acab529d80fff91e2": "dDE{Rt?b~q?b-;%MRjbHxuRjD%IUoKIUIURjM{xuIUWB"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "Manyi Kiss",
+                        "Id": "2f7f4984d0feeafbe87810acfb864d44",
+                        "Role": "Lina Néni",
+                        "Type": "Actor",
+                        "PrimaryImageTag": "8e1fc1d501fab5b4c9093e2620b6f5ce",
+                        "ImageBlurHashes": {
+                            "Primary": {
+                                "8e1fc1d501fab5b4c9093e2620b6f5ce": "dBD]o8j[4nayxuM{4nt700ofofxuIUxu-;M{9FIUayRj"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "Éva Pap",
+                        "Id": "0be9e5299fa3bfe81296280ed9241aa0",
+                        "Role": "Jutka",
+                        "Type": "Actor",
+                        "PrimaryImageTag": "cae54e663912555c80009847edb18659",
+                        "ImageBlurHashes": {
+                            "Primary": {
+                                "cae54e663912555c80009847edb18659": "dQIY5?WB_3-;t7%Mxuof~qRj-;of?bof%M%MxuofWBRj"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "Haumann Péter",
+                        "Id": "2b40263d56ec1f0e1a0e98cbbe96ad90",
+                        "Role": "",
+                        "Type": "Actor",
+                        "PrimaryImageTag": "2ad22998ec942753d50edf8ee6489b2b",
+                        "ImageBlurHashes": {
+                            "Primary": {
+                                "2ad22998ec942753d50edf8ee6489b2b": "d;HB#mxa-;xu~pt7%Mxu%Mj[t7ofa#fQR+WVj]j[R*a#"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "Koltai János",
+                        "Id": "397a270da3beeb3870b8b0875bb4431e",
+                        "Role": "Török Mihály",
+                        "Type": "Actor",
+                        "PrimaryImageTag": "323cf6b544889b426f76b4b80eaf8744",
+                        "ImageBlurHashes": {
+                            "Primary": {
+                                "323cf6b544889b426f76b4b80eaf8744": "dNI4VA-VGFx^~Wi_OXoztRR*RjNGkXxaIUS2Ndt7WBbH"
+                            }
+                        }
+                    },
+                    {
+                        "Name": "Szirtes Ádám",
+                        "Id": "7a2624a2c41151a08ac11df73daa048d",
+                        "Role": "Ádám",
+                        "Type": "Actor",
+                        "PrimaryImageTag": "c20f809ad27466bcf45e529208701e38",
+                        "ImageBlurHashes": {
+                            "Primary": {
+                                "c20f809ad27466bcf45e529208701e38": "dHF~gc_34nfQ00IUIUM{IUt7j[ofofWBt7t7D%M{WBRj"
+                            }
+                        }
+                    }
+                ],
+                "Studios": [
+                    {
+                        "Name": "Mafilm",
+                        "Id": "59068d9a0dbfe91bf2ff492004499555"
+                    }
+                ],
+                "GenreItems": [
+                    {
+                        "Name": "Dráma",
+                        "Id": "4791ebd2a27d5f729cfa9b3dc894a18d"
+                    }
+                ],
+                "LocalTrailerCount": 0,
+                "SpecialFeatureCount": 0,
+                "DisplayPreferencesId": "dbf7709c41faaa746463d67978eb863d",
+                "Tags": [],
+                "PrimaryImageAspectRatio": 0.6666666666666666,
+                "MediaStreams": [
+                    {
+                        "Codec": "h264",
+                        "CodecTag": "avc1",
+                        "Language": "und",
+                        "ColorSpace": "bt709",
+                        "ColorTransfer": "bt709",
+                        "ColorPrimaries": "bt709",
+                        "TimeBase": "1/24000",
+                        "VideoRange": "SDR",
+                        "VideoRangeType": "SDR",
+                        "AudioSpatialFormat": "None",
+                        "DisplayTitle": "1080p H264 SDR",
+                        "NalLengthSize": "4",
+                        "IsInterlaced": false,
+                        "IsAVC": true,
+                        "BitRate": 137779,
+                        "BitDepth": 8,
+                        "RefFrames": 1,
+                        "IsDefault": true,
+                        "IsForced": false,
+                        "IsHearingImpaired": false,
+                        "Height": 1024,
+                        "Width": 1536,
+                        "AverageFrameRate": 23.976025,
+                        "RealFrameRate": 23.976025,
+                        "ReferenceFrameRate": 23.976025,
+                        "Profile": "High",
+                        "Type": "Video",
+                        "AspectRatio": "1.5:1",
+                        "Index": 0,
+                        "IsExternal": false,
+                        "IsTextSubtitleStream": false,
+                        "SupportsExternalStream": false,
+                        "PixelFormat": "yuv420p",
+                        "Level": 40,
+                        "IsAnamorphic": false
+                    },
+                    {
+                        "Codec": "aac",
+                        "CodecTag": "mp4a",
+                        "Language": "und",
+                        "TimeBase": "1/48000",
+                        "VideoRange": "Unknown",
+                        "VideoRangeType": "Unknown",
+                        "AudioSpatialFormat": "None",
+                        "LocalizedDefault": "Default",
+                        "LocalizedExternal": "External",
+                        "DisplayTitle": "AAC - Stereo - Default",
+                        "IsInterlaced": false,
+                        "IsAVC": false,
+                        "ChannelLayout": "stereo",
+                        "BitRate": 2278,
+                        "Channels": 2,
+                        "SampleRate": 48000,
+                        "IsDefault": true,
+                        "IsForced": false,
+                        "IsHearingImpaired": false,
+                        "Profile": "LC",
+                        "Type": "Audio",
+                        "Index": 1,
+                        "IsExternal": false,
+                        "IsTextSubtitleStream": false,
+                        "SupportsExternalStream": false,
+                        "Level": 0
+                    }
+                ],
+                "VideoType": "VideoFile",
+                "ImageTags": {
+                    "Primary": "880ab042552847b454f05f7f1b38736c"
+                },
+                "BackdropImageTags": [],
+                "ImageBlurHashes": {
+                    "Primary": {
+                        "880ab042552847b454f05f7f1b38736c": "dNFh^[OFSh^k0:^+-po}9aV?%1bc~CoykBR5tS%2xZ%M"
+                    }
+                },
+                "Chapters": [],
+                "Trickplay": {},
+                "LocationType": "FileSystem",
+                "MediaType": "Video",
+                "LockedFields": [],
+                "LockData": false,
+                "Width": 1536,
+                "Height": 1024
+            }
+        ],
+        "HasCustomDeviceName": false,
+        "PlaylistItemId": "playlistItem28",
+        "ServerId": "5044f8c0502743b09777364723ddc2e0",
+        "SupportedCommands": [
+            "MoveUp",
+            "MoveDown",
+            "MoveLeft",
+            "MoveRight",
+            "PageUp",
+            "PageDown",
+            "PreviousLetter",
+            "NextLetter",
+            "ToggleOsd",
+            "ToggleContextMenu",
+            "Select",
+            "Back",
+            "SendKey",
+            "SendString",
+            "GoHome",
+            "GoToSettings",
+            "VolumeUp",
+            "VolumeDown",
+            "Mute",
+            "Unmute",
+            "ToggleMute",
+            "SetVolume",
+            "SetAudioStreamIndex",
+            "SetSubtitleStreamIndex",
+            "DisplayContent",
+            "GoToSearch",
+            "DisplayMessage",
+            "SetRepeatMode",
+            "SetShuffleQueue",
+            "ChannelUp",
+            "ChannelDown",
+            "PlayMediaSource",
+            "PlayTrailers"
+        ]
+    },
+    {
+        "PlayState": {
+            "PositionTicks": 36410740000,
+            "CanSeek": true,
+            "IsPaused": false,
+            "IsMuted": false,
+            "AudioStreamIndex": 1,
+            "SubtitleStreamIndex": -1,
+            "MediaSourceId": "d4dd6f1dfbf907cc1f187849e2939006",
+            "PlayMethod": "DirectPlay",
+            "RepeatMode": "RepeatNone",
+            "PlaybackOrder": "Default"
+        },
+        "AdditionalUsers": [],
+        "Capabilities": {
+            "PlayableMediaTypes": [
+                "Video",
+                "Audio"
+            ],
+            "SupportedCommands": [
+                "DisplayContent",
+                "SetSubtitleStreamIndex",
+                "SetAudioStreamIndex",
+                "DisplayMessage",
+                "SendString",
+                "VolumeUp",
+                "VolumeDown",
+                "SetVolume",
+                "Mute",
+                "Unmute",
+                "ToggleMute"
+            ],
+            "SupportsMediaControl": true,
+            "SupportsPersistentIdentifier": true
+        },
+        "RemoteEndPoint": "192.168.0.167",
+        "PlayableMediaTypes": [
+            "Video",
+            "Audio"
+        ],
+        "Id": "15d4618dc3e79c4fe1590163233d141e",
+        "UserId": "e3cc30114c354b68995e36c06793dedc",
+        "UserName": "szucsiki",
+        "Client": "Jellyfin Android TV",
+        "LastActivityDate": "2026-04-22T09:59:58.565797Z",
+        "LastPlaybackCheckIn": "2026-04-22T09:59:58.5657972Z",
+        "DeviceName": "Xiaomi médiabox",
+        "NowPlayingItem": {
+            "Name": "Apokalipszis most",
+            "OriginalTitle": "Apocalypse Now",
+            "ServerId": "5044f8c0502743b09777364723ddc2e0",
+            "Id": "d4dd6f1dfbf907cc1f187849e2939006",
+            "DateCreated": "2026-03-20T08:09:53.4329053Z",
+            "Container": "mov,mp4,m4a,3gp,3g2,mj2",
+            "PremiereDate": "1979-05-19T00:00:00.0000000Z",
+            "ExternalUrls": [
+                {
+                    "Name": "IMDb",
+                    "Url": "https://www.imdb.com/title/tt0078788"
+                },
+                {
+                    "Name": "TMDB",
+                    "Url": "https://www.themoviedb.org/movie/28"
+                }
+            ],
+            "CriticRating": 91,
+            "Path": "/movies/Apocalypse Now (1979) [imdbid-tt0078788]/Apocalypse.Now.1979.Final.Cut.2160p.UHD.BluRay.TrueHD.Atmos.7.1.DoVi-HDR.x265.HuN-TRiNiTY.mkv",
+            "EnableMediaSourceDisplay": true,
+            "OfficialRating": "HU-16",
+            "ChannelId": null,
+            "Overview": "Williard kapitány azt a megbízatást kapja a saigoni CIA-tól, hogy likvidáljon egy nyilvánvalóan megőrült ezredest. Az ezredes ugyanis a kambodzsai dzsungelben alakította ki saját birodalmát, amelyben magát istenként imádtatja és kíméletlen magánháborút folytat. Williard útja felfelé a folyón, a háborús területen keresztül egyre inkább erős színekkel festett rémálmokhoz hasonlít.",
+            "Taglines": [
+                "A borzalom. . . A borzalom. . ."
+            ],
+            "Genres": [
+                "Dráma",
+                "Háborús"
+            ],
+            "CommunityRating": 8.27,
+            "RunTimeTicks": 144000000,
+            "ProductionYear": 1979,
+            "ProviderIds": {
+                "Imdb": "tt0078788",
+                "Tmdb": "28"
+            },
+            "IsHD": true,
+            "IsFolder": false,
+            "ParentId": "5b0d238e2f6d5609b709d7b76300e217",
+            "Type": "Movie",
+            "Studios": [
+                {
+                    "Name": "American Zoetrope",
+                    "Id": "b299a1a6254feedfcf45845d949f8c98"
+                }
+            ],
+            "GenreItems": [
+                {
+                    "Name": "Dráma",
+                    "Id": "4791ebd2a27d5f729cfa9b3dc894a18d"
+                },
+                {
+                    "Name": "Háborús",
+                    "Id": "94f96c6d549b50dba54247ae6f389c8e"
+                }
+            ],
+            "LocalTrailerCount": 0,
+            "SpecialFeatureCount": 0,
+            "PrimaryImageAspectRatio": 0.6666666666666666,
+            "MediaStreams": [
+                {
+                    "Codec": "h264",
+                    "CodecTag": "avc1",
+                    "Language": "und",
+                    "ColorSpace": "bt709",
+                    "ColorTransfer": "bt709",
+                    "ColorPrimaries": "bt709",
+                    "TimeBase": "1/24000",
+                    "VideoRange": "SDR",
+                    "VideoRangeType": "SDR",
+                    "AudioSpatialFormat": "None",
+                    "DisplayTitle": "1080p H264 SDR",
+                    "NalLengthSize": "4",
+                    "IsInterlaced": false,
+                    "IsAVC": true,
+                    "BitRate": 137779,
+                    "BitDepth": 8,
+                    "RefFrames": 1,
+                    "IsDefault": true,
+                    "IsForced": false,
+                    "IsHearingImpaired": false,
+                    "Height": 1024,
+                    "Width": 1536,
+                    "AverageFrameRate": 23.976025,
+                    "RealFrameRate": 23.976025,
+                    "ReferenceFrameRate": 23.976025,
+                    "Profile": "High",
+                    "Type": "Video",
+                    "AspectRatio": "1.5:1",
+                    "Index": 0,
+                    "IsExternal": false,
+                    "IsTextSubtitleStream": false,
+                    "SupportsExternalStream": false,
+                    "PixelFormat": "yuv420p",
+                    "Level": 40,
+                    "IsAnamorphic": false
+                },
+                {
+                    "Codec": "aac",
+                    "CodecTag": "mp4a",
+                    "Language": "und",
+                    "TimeBase": "1/48000",
+                    "VideoRange": "Unknown",
+                    "VideoRangeType": "Unknown",
+                    "AudioSpatialFormat": "None",
+                    "LocalizedDefault": "Default",
+                    "LocalizedExternal": "External",
+                    "DisplayTitle": "AAC - Stereo - Default",
+                    "IsInterlaced": false,
+                    "IsAVC": false,
+                    "ChannelLayout": "stereo",
+                    "BitRate": 2278,
+                    "Channels": 2,
+                    "SampleRate": 48000,
+                    "IsDefault": true,
+                    "IsForced": false,
+                    "IsHearingImpaired": false,
+                    "Profile": "LC",
+                    "Type": "Audio",
+                    "Index": 1,
+                    "IsExternal": false,
+                    "IsTextSubtitleStream": false,
+                    "SupportsExternalStream": false,
+                    "Level": 0
+                }
+            ],
+            "VideoType": "VideoFile",
+            "ImageTags": {
+                "Primary": "fa0a85e0728f8f9caa6f2bd3be2a61fe",
+                "Logo": "c341868b331a382e640384aa7adc0a51",
+                "Thumb": "0ccaa7a04fa632c451867de14d733560"
+            },
+            "BackdropImageTags": [
+                "c43fea3d1b54acea6ffd635798e62934"
+            ],
+            "ImageBlurHashes": {
+                "Backdrop": {
+                    "c43fea3d1b54acea6ffd635798e62934": "WeFCV5OCEgso$%sC}EWpI;oKt5n*oesUjGjtX7a|sVo1oJazWXoK"
+                },
+                "Primary": {
+                    "fa0a85e0728f8f9caa6f2bd3be2a61fe": "dXG5:wNb9^$%}FjGRks.5,s.-9RlENoexsRknifkX8n%"
+                },
+                "Logo": {
+                    "c341868b331a382e640384aa7adc0a51": "OQDJL?%Mj[IoRjIUIUWBM{ofRjayRjj[00ofxut7t7t7t7"
+                },
+                "Thumb": {
+                    "0ccaa7a04fa632c451867de14d733560": "WD9?F4BU56[V65xu=eOXNa#mK4jZ0LVs=|TJadnOELRP%2b^RPw{"
+                }
+            },
+            "Chapters": [],
+            "Trickplay": {},
+            "LocationType": "FileSystem",
+            "MediaType": "Video",
+            "Width": 1536,
+            "Height": 1024
+        },
+        "DeviceId": "67c2639054cf1858ee945043c1bf57e4828f9ae0",
+        "ApplicationVersion": "0.19.7",
+        "IsActive": true,
+        "SupportsMediaControl": false,
+        "SupportsRemoteControl": false,
+        "NowPlayingQueue": [],
+        "NowPlayingQueueFullItems": [],
+        "HasCustomDeviceName": false,
+        "ServerId": "5044f8c0502743b09777364723ddc2e0",
+        "SupportedCommands": [
+            "DisplayContent",
+            "SetSubtitleStreamIndex",
+            "SetAudioStreamIndex",
+            "DisplayMessage",
+            "SendString",
+            "VolumeUp",
+            "VolumeDown",
+            "SetVolume",
+            "Mute",
+            "Unmute",
+            "ToggleMute"
+        ]
+    }
+]
