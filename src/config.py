@@ -78,7 +78,14 @@ class Configuration:
         or qbittorrent_password is None:
         raise ValueError("One or more directory environment variables are not set")
 
+    # Placeholders
     placeholder_starter_path = placeholders_directory + "/jellyfin-placeholder.mp4"
+    placeholder_one_hr_left_path = placeholders_directory + "/jellyfin-placeholder-1-hour-left.mp4"
+    placeholder_less_then_one_hr_left_path = placeholders_directory + "/jellyfin-placeholder-less-then-1-hour-left.mp4"
+    placeholder_half_hr_left_path = placeholders_directory + "/jellyfin-placeholder-half-hour-left.mp4"
+    placeholder_less_then_twenty_min_left_path = placeholders_directory + "/jellyfin-placeholder-less-then-20-minutes-left.mp4"
+    placeholder_less_then_ten_min_left_path = placeholders_directory + "/jellyfin-placeholder.mp4"
+    placeholder_less_then_five_min_left_path = placeholders_directory + "/jellyfin-placeholder.mp4"
 
     def __init__(self):
         pass

@@ -33,7 +33,6 @@ class JellyfinApi:
             "Accept": "application/json",
         }
 
-
     def fetch_items(self) -> list[dict]:
         """
         Fetch all items of the given types from Jellyfin.

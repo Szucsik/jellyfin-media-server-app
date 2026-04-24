@@ -97,7 +97,7 @@ class TorrentSyncService:
             return
 
         bittorrent = BittorrentAPI(self.config)
-        save_path = await bittorrent.torrent_task(local_info.torrent_file_local_path)
+        save_path = await bittorrent.torrent_task(local_info.torrent_file_local_path, local_info.symlink_path.split(";"))
 
         if save_path:
             await loop.run_in_executor(
