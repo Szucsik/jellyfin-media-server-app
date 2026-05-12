@@ -1,14 +1,16 @@
 import asyncio
 import os
+from dataclasses import dataclass, field
 from pathlib import Path
 import re
 from typing import Optional
 
 from config import Configuration
 from jellyfin_api.jellyfin_api import JellyfinApi
-from jellyfin_api.bittorrentapi import BittorrentAPI
+from jellyfin_api.bittorrentapi import BittorrentAPI, SPEED_UNLIMITED, SPEED_20_MBPS, SPEED_5_MBPS
 from models.torrent import Torrent
 from models.local_file_information import LocalFileInformation
+from models.show_season import ShowSeason
 
 IMDB_PATH_PATTERN = re.compile(r"\[imdbid-(tt\d+)\]")
 
@@ -22,16 +24,43 @@ def extract_imdb_id(path: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
+@dataclass
+class EpisodeRequest:
+    """Represents a user's request to play a specific episode."""
+    imdb_id: str
+    played_path: str
+    jellyfin_item_id: str
+    torrent: Torrent
+    local_info: LocalFileInformation
+    episode_file_index: int  # index within the original_file_path semicolon list
+    show_season: Optional[ShowSeason] = None
+
+
 class TorrentSyncService:
-    """Async service: polls Jellyfin every second and downloads torrents in parallel."""
+    """Async service: polls Jellyfin and downloads torrents with priority-based throttling.
+
+    Download priority:
+      1. Selected episode → full speed (unlimited)
+      2. Rest of season → 20 Mbps
+      3. Rest of show (other seasons) → 5 Mbps
+
+    If a new episode is selected during season/show download, it interrupts and
+    prioritizes the new episode at full speed.
+    """
 
     def __init__(self, config: Configuration) -> None:
         self.config = config
         self.jellyfin = JellyfinApi(config)
+        self.bittorrent = BittorrentAPI(config)
         self.logger = config.get_logger(__name__)
-        self.tiggered_imdb_ids: list[str] = []
+
+        self.triggered_imdb_ids: list[str] = []
+        self._episode_queue: asyncio.Queue[EpisodeRequest] = asyncio.Queue()
+        self._interrupt_event: asyncio.Event = asyncio.Event()
+        self._current_request: Optional[EpisodeRequest] = None
 
     # ── Jellyfin polling task ─────────────────────────────────────────────────
+
     async def _poll_jellyfin(self) -> None:
         loop = asyncio.get_running_loop()
 
@@ -44,68 +73,332 @@ class TorrentSyncService:
 
             if newly_played:
                 for item in newly_played:
-                    asyncio.create_task(self._handle_played_item(item))
-                    
+                    await self._process_played_item(item)
+
             await asyncio.sleep(1)
 
-    # ── Handle a single newly-played item ─────────────────────────────────────
-    async def _handle_played_item(self, item: dict) -> None:
+    # ── Process a played item into a download request ─────────────────────────
+
+    async def _process_played_item(self, item: dict) -> None:
         path = item.get('NowPlayingItem', {}).get('Path')
 
         if path is None:
             return
-     
+
         imdb_id = extract_imdb_id(path)
 
         if not imdb_id:
             self.logger.warning("No IMDb ID in path for %s", path)
             return
 
-        if imdb_id in self.tiggered_imdb_ids:
+        if imdb_id in self.triggered_imdb_ids:
             return
 
-        self.tiggered_imdb_ids.append(imdb_id)
-
+        self.triggered_imdb_ids.append(imdb_id)
         self.logger.info("Played: %s (IMDb: %s)", path, imdb_id)
 
-        torrent: Optional[Torrent] = self.config.torrent_repository.find_registered_media_by_imdb_id(imdb_id)
+        loop = asyncio.get_running_loop()
+
+        torrent: Optional[Torrent] = await loop.run_in_executor(
+            None, self.config.torrent_repository.find_registered_media_by_imdb_id, imdb_id,
+        )
         if not torrent:
             self.logger.warning("No torrent in DB for IMDb ID %s", imdb_id)
             return
 
-        self.logger.info("Starting download: %s", torrent.title)
-        try:
-            await self._download_torrent(torrent)
-            self.logger.info("Download complete: %s", torrent.title)
-            self.logger.info("Triggering jellyfin to scan the new item")
-            self.jellyfin.refresh_item(item.get('NowPlayingItem', {}).get('Id'))
-            self.logger.info("Jellyfin scan completed")
-        except Exception as exc:
-            self.logger.error("Download failed for %s: %s", torrent.title, exc)
-
-    # ── Download a single torrent via qBittorrent ─────────────────────────────
-    async def _download_torrent(self, torrent: Torrent) -> None:
-        loop = asyncio.get_running_loop()
-
         local_info: Optional[LocalFileInformation] = await loop.run_in_executor(
-            None,
-            lambda: self.config.local_files_repository.find_first_by(torrent_id=torrent.id),
+            None, lambda: self.config.local_files_repository.find_first_by(torrent_id=torrent.id),
         )
-
         if not local_info or not local_info.torrent_file_local_path:
-            self.logger.warning("No local torrent file found in DB for torrent %s", torrent.title)
+            self.logger.warning("No local torrent file found for torrent %s", torrent.title)
             return
 
-        bittorrent = BittorrentAPI(self.config)
-        save_path = await bittorrent.torrent_task(local_info.torrent_file_local_path, local_info.symlink_path.split(";"))
+        # Determine which episode file is being played
+        episode_file_index = self._find_episode_index(path, local_info)
+
+        # Look up the ShowSeason for this torrent
+        show_season: Optional[ShowSeason] = await loop.run_in_executor(
+            None, lambda: self.config.show_season_repository.find_first_by(torrent_id=torrent.id),
+        )
+
+        jellyfin_item_id = item.get('NowPlayingItem', {}).get('Id', '')
+
+        request = EpisodeRequest(
+            imdb_id=imdb_id,
+            played_path=path,
+            jellyfin_item_id=jellyfin_item_id,
+            torrent=torrent,
+            local_info=local_info,
+            episode_file_index=episode_file_index,
+            show_season=show_season,
+        )
+
+        # If this is a show and we're already downloading, interrupt current download
+        if torrent.is_show and self._current_request is not None:
+            self.logger.info("New episode requested — interrupting current download")
+            self._interrupt_event.set()
+
+        await self._episode_queue.put(request)
+
+    def _find_episode_index(self, played_path: str, local_info: LocalFileInformation) -> int:
+        """Find which file index in the torrent corresponds to the played path."""
+        symlink_paths = local_info.symlink_path.split(";")
+
+        for i, symlink_path in enumerate(symlink_paths):
+            if symlink_path.strip() == played_path.strip():
+                return i
+
+        # Fallback: try partial match (filename only)
+        played_filename = Path(played_path).name
+        for i, symlink_path in enumerate(symlink_paths):
+            if Path(symlink_path.strip()).name == played_filename:
+                return i
+
+        self.logger.warning("Could not match played path to episode index, defaulting to 0")
+        return 0
+
+    # ── Download orchestrator ─────────────────────────────────────────────────
+
+    async def _download_orchestrator(self) -> None:
+        """Main download loop that processes episode requests with priority."""
+        self.logger.info("Download orchestrator started")
+
+        while True:
+            request = await self._episode_queue.get()
+            self._current_request = request
+            self._interrupt_event.clear()
+
+            try:
+                if request.torrent.is_show:
+                    await self._handle_show_download(request)
+                else:
+                    await self._handle_movie_download(request)
+            except Exception as exc:
+                self.logger.error("Download failed for %s: %s", request.torrent.title, exc)
+            finally:
+                self._current_request = None
+
+    # ── Movie download (simple, no prioritization) ────────────────────────────
+
+    async def _handle_movie_download(self, request: EpisodeRequest) -> None:
+        self.logger.info("Starting movie download: %s", request.torrent.title)
+
+        save_path = await self.bittorrent.torrent_task(
+            request.local_info.torrent_file_local_path,
+            request.local_info.symlink_path.split(";"),
+        )
 
         if save_path:
-            await loop.run_in_executor(
-                None, self._update_symlinks, local_info, save_path,
+            self._update_symlinks(request.local_info, save_path)
+            self.logger.info("Triggering Jellyfin to scan the new item")
+            self.jellyfin.refresh_item(request.jellyfin_item_id)
+            self.logger.info("Movie download complete: %s", request.torrent.title)
+
+    # ── TV Show download (3-phase with priority) ──────────────────────────────
+
+    async def _handle_show_download(self, request: EpisodeRequest) -> None:
+        self.logger.info(
+            "Starting show download: %s (episode index: %d)",
+            request.torrent.title, request.episode_file_index,
+        )
+
+        # Phase 1: Download the selected episode at full speed
+        completed = await self._phase_episode(request)
+        if not completed:
+            return  # Interrupted, new request will take over
+
+        # Phase 2: Download the rest of the season at 20 Mbps
+        completed = await self._phase_season(request)
+        if not completed:
+            return  # Interrupted
+
+        # Phase 3: Download other seasons of the show at 5 Mbps
+        await self._phase_show(request)
+
+    async def _phase_episode(self, request: EpisodeRequest) -> bool:
+        """Phase 1: Download only the selected episode at full speed."""
+        self.logger.info("Phase 1: Downloading episode at full speed")
+
+        torrent_hash = await self.bittorrent.add_torrent(request.local_info.torrent_file_local_path)
+        torrent_files = await self.bittorrent.get_torrent_files(torrent_hash)
+
+        # Match the episode file to the qBittorrent file index
+        original_files = request.local_info.original_file_path.split(";")
+        target_original_file = original_files[request.episode_file_index].strip()
+
+        qbt_file_index = self._find_qbt_file_index(torrent_files, target_original_file)
+        if qbt_file_index is None:
+            self.logger.error("Could not find episode file '%s' in torrent files", target_original_file)
+            return True  # Don't block, move to next phase
+
+        # Set all files to "do not download", then enable only the target episode
+        all_indices = [f["index"] for f in torrent_files]
+        await self.bittorrent.set_file_priorities(torrent_hash, all_indices, 0)
+        await self.bittorrent.set_file_priorities(torrent_hash, [qbt_file_index], 7)
+
+        # Full speed
+        await self.bittorrent.set_download_limit(torrent_hash, SPEED_UNLIMITED)
+
+        # Wait for the episode to download
+        symlink_paths = request.local_info.symlink_path.split(";")
+        episode_symlink = [symlink_paths[request.episode_file_index].strip()]
+
+        completed = await self.bittorrent.wait_for_files_complete(
+            torrent_hash,
+            [qbt_file_index],
+            symlink_paths=episode_symlink,
+            interrupt_event=self._interrupt_event,
+        )
+
+        if completed:
+            # Update symlink for the downloaded episode
+            save_path = await self.bittorrent.get_save_path(torrent_hash)
+            if save_path:
+                self._update_single_symlink(
+                    save_path, target_original_file,
+                    symlink_paths[request.episode_file_index].strip(),
+                )
+            self.logger.info("Episode download complete, refreshing Jellyfin")
+            self.jellyfin.refresh_item(request.jellyfin_item_id)
+            return True
+
+        return False
+
+    async def _phase_season(self, request: EpisodeRequest) -> bool:
+        """Phase 2: Download the rest of the season at 20 Mbps."""
+        self.logger.info("Phase 2: Downloading rest of season at 20 Mbps")
+
+        torrent_hash = await self.bittorrent.add_torrent(request.local_info.torrent_file_local_path)
+        torrent_files = await self.bittorrent.get_torrent_files(torrent_hash)
+
+        # Enable all files in this season torrent
+        all_indices = [f["index"] for f in torrent_files]
+        await self.bittorrent.set_file_priorities(torrent_hash, all_indices, 1)
+
+        # Throttle to 20 Mbps
+        await self.bittorrent.set_download_limit(torrent_hash, SPEED_20_MBPS)
+
+        # Wait for all season files to complete
+        symlink_paths = request.local_info.symlink_path.split(";")
+        completed = await self.bittorrent.wait_for_torrent_complete(
+            torrent_hash,
+            symlink_paths=symlink_paths,
+            interrupt_event=self._interrupt_event,
+        )
+
+        if completed:
+            save_path = await self.bittorrent.get_save_path(torrent_hash)
+            if save_path:
+                self._update_symlinks(request.local_info, save_path)
+            self.logger.info("Season download complete")
+            self.jellyfin.refresh_item(request.jellyfin_item_id)
+            return True
+
+        return False
+
+    async def _phase_show(self, request: EpisodeRequest) -> None:
+        """Phase 3: Download other seasons of the show at 5 Mbps."""
+        if not request.show_season:
+            self.logger.info("No show_season info, skipping phase 3")
+            return
+
+        loop = asyncio.get_running_loop()
+        show_id = request.show_season.show_id
+
+        # Find all other seasons for this show
+        all_seasons: list[ShowSeason] = await loop.run_in_executor(
+            None, self.config.show_season_repository.get_all_seasons_for_show, show_id,
+        )
+
+        other_seasons = [s for s in all_seasons if s.torrent_id != request.torrent.id]
+
+        if not other_seasons:
+            self.logger.info("No other seasons to download for show %s", show_id)
+            return
+
+        self.logger.info("Phase 3: Downloading %d other season(s) at 5 Mbps", len(other_seasons))
+
+        for season in other_seasons:
+            if self._interrupt_event.is_set():
+                self.logger.info("Phase 3 interrupted")
+                return
+
+            season_torrent: Optional[Torrent] = await loop.run_in_executor(
+                None, self.config.torrent_repository.get, season.torrent_id,
+            )
+            if not season_torrent:
+                continue
+
+            season_local_info: Optional[LocalFileInformation] = await loop.run_in_executor(
+                None, lambda: self.config.local_files_repository.find_first_by(torrent_id=season.torrent_id),
+            )
+            if not season_local_info or not season_local_info.torrent_file_local_path:
+                continue
+
+            self.logger.info("Downloading season %d-%d: %s", season.season, season.season_to, season_torrent.title)
+
+            torrent_hash = await self.bittorrent.add_torrent(season_local_info.torrent_file_local_path)
+
+            # Enable all files, throttle to 5 Mbps
+            torrent_files = await self.bittorrent.get_torrent_files(torrent_hash)
+            all_indices = [f["index"] for f in torrent_files]
+            await self.bittorrent.set_file_priorities(torrent_hash, all_indices, 1)
+            await self.bittorrent.set_download_limit(torrent_hash, SPEED_5_MBPS)
+
+            symlink_paths = season_local_info.symlink_path.split(";")
+            completed = await self.bittorrent.wait_for_torrent_complete(
+                torrent_hash,
+                symlink_paths=symlink_paths,
+                interrupt_event=self._interrupt_event,
             )
 
-    # ── Update symlinks to point to downloaded files ──────────────────────────
+            if completed:
+                save_path = await self.bittorrent.get_save_path(torrent_hash)
+                if save_path:
+                    self._update_symlinks(season_local_info, save_path)
+                self.logger.info("Season %d-%d download complete", season.season, season.season_to)
+            else:
+                self.logger.info("Phase 3 interrupted during season %d", season.season)
+                return
+
+        self.logger.info("All seasons downloaded for show %s", show_id)
+
+    # ── Helpers ───────────────────────────────────────────────────────────────
+
+    def _find_qbt_file_index(self, torrent_files: list[dict], original_file: str) -> Optional[int]:
+        """Find the qBittorrent file index matching the original file path."""
+        original_filename = Path(original_file).name
+
+        # Try exact path match first
+        for f in torrent_files:
+            if f["name"] == original_file or f["name"].endswith("/" + original_file):
+                return f["index"]
+
+        # Fallback: match by filename
+        for f in torrent_files:
+            if Path(f["name"]).name == original_filename:
+                return f["index"]
+
+        return None
+
+    def _update_single_symlink(self, save_path: str, original_file: str, symlink_str: str) -> None:
+        """Update a single symlink to point to the downloaded file."""
+        save_path = save_path.replace(self.config.downloaded_directory, self.config.downloaded_target_directory)
+        downloaded_file = Path(save_path) / original_file
+        symlink = Path(symlink_str)
+
+        if not downloaded_file.exists():
+            self.logger.warning("Downloaded file not found: %s", downloaded_file)
+            return
+
+        if symlink.is_symlink():
+            symlink.unlink()
+
+        symlink.symlink_to(downloaded_file)
+        self.logger.info("Symlink updated: %s → %s", symlink, downloaded_file)
+
     def _update_symlinks(self, local_info: LocalFileInformation, save_path: str) -> None:
+        """Update all symlinks to point to downloaded files."""
         if not local_info.symlink_path or not local_info.original_file_path:
             self.logger.warning("No symlink/original_file_path data for torrent_id %s", local_info.torrent_id)
             return
@@ -121,23 +414,13 @@ class TorrentSyncService:
             return
 
         for symlink_str, original_file in zip(symlink_paths, original_files):
-            self.logger.info("Original save path %s", save_path)
-            save_path = save_path.replace(self.config.downloaded_directory, self.config.downloaded_target_directory)
-            self.logger.info("Containerized save path %s", save_path)
-            downloaded_file = Path(save_path) / original_file
-            symlink = Path(symlink_str)
-
-            if not downloaded_file.exists():
-                self.logger.warning("Downloaded file not found: %s", downloaded_file)
-                continue
-
-            if symlink.is_symlink():
-                symlink.unlink()
-
-            symlink.symlink_to(downloaded_file)
-            self.logger.info("Symlink updated: %s → %s", symlink, downloaded_file)
+            self._update_single_symlink(save_path, original_file.strip(), symlink_str.strip())
 
     # ── Entry point ───────────────────────────────────────────────────────────
+
     async def run(self) -> None:
-        """Start the Jellyfin polling loop (torrent downloads run as parallel tasks)."""
-        await self._poll_jellyfin()
+        """Start the Jellyfin polling loop and download orchestrator."""
+        await asyncio.gather(
+            self._poll_jellyfin(),
+            self._download_orchestrator(),
+        )
