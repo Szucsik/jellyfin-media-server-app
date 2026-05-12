@@ -158,7 +158,7 @@ class TestExtraction:
 
         driver.find_elements.side_effect = _find_elements
         driver.page_source = (
-            '<link rel="alternate" href="https://ncore.pro/rss.php?key=ABCDEF12345" title="x">'
+            '<link rel="alternate" href="https://ncore.pro/rss.php?key=abcdef12345" title="x">'
         )
         return driver, torrent_divs
 
@@ -177,7 +177,7 @@ class TestExtraction:
         assert torrents[0].category == "HD"
         assert torrents[0].seeders_number == "10"
         assert torrents[0].leechers_number == "0"
-        assert "key=ABCDEF12345" in torrents[0].download_link
+        assert "key=abcdef12345" in torrents[0].download_link
 
     def test_sd_skips_quality_extraction(self, scraper):
         driver, _ = self._build_fake_driver(n_torrents=1)
