@@ -13,7 +13,7 @@ from models.local_file_information import LocalFileInformation
 from models.show_season import ShowSeason
 
 IMDB_PATH_PATTERN = re.compile(r"\[imdbid-(tt\d+)\]")
-
+IMDB_URL_PATTERN = re.compile(r"tt\d+")
 
 def extract_imdb_id(path: str) -> Optional[str]:
     """Extract IMDb ID from a Jellyfin media path.
@@ -23,9 +23,17 @@ def extract_imdb_id(path: str) -> Optional[str]:
     match = IMDB_PATH_PATTERN.search(path)
     return match.group(1) if match else None
 
+def extract_imdb_id_from_url(path: str) -> Optional[str]:
+    """Extract IMDb ID from a Jellyfin media path.
+
+    e.g. 'https://www.imdb.com/title/tt0257290/?ref_=fn_t_1' → 'tt0257290'
+    """
+    match = IMDB_URL_PATTERN.search(path)
+    return match.group(0) if match else None
+
 
 @dataclass
-class EpisodeRequest:
+class MediaDownloadRequest:
     """Represents a user's request to play a specific episode."""
     imdb_id: str
     played_path: str
@@ -55,9 +63,9 @@ class TorrentSyncService:
         self.logger = config.get_logger(__name__)
 
         self.triggered_imdb_ids: list[str] = []
-        self._episode_queue: asyncio.Queue[EpisodeRequest] = asyncio.Queue()
+        self._media_download_queue: asyncio.Queue[MediaDownloadRequest] = asyncio.Queue()
         self._interrupt_event: asyncio.Event = asyncio.Event()
-        self._current_request: Optional[EpisodeRequest] = None
+        self._current_request: Optional[MediaDownloadRequest] = None
 
     # ── Jellyfin polling task ─────────────────────────────────────────────────
 
@@ -91,9 +99,6 @@ class TorrentSyncService:
             self.logger.warning("No IMDb ID in path for %s", path)
             return
 
-        if imdb_id in self.triggered_imdb_ids:
-            return
-
         self.triggered_imdb_ids.append(imdb_id)
         self.logger.info("Played: %s (IMDb: %s)", path, imdb_id)
 
@@ -104,6 +109,10 @@ class TorrentSyncService:
         )
         if not torrent:
             self.logger.warning("No torrent in DB for IMDb ID %s", imdb_id)
+            return
+        
+        # If its a movie we've already triggered a download for, don't trigger again (prevents double triggering when user clicks play multiple times quickly)
+        if imdb_id in self.triggered_imdb_ids and not torrent.is_show:
             return
 
         local_info: Optional[LocalFileInformation] = await loop.run_in_executor(
@@ -123,7 +132,7 @@ class TorrentSyncService:
 
         jellyfin_item_id = item.get('NowPlayingItem', {}).get('Id', '')
 
-        request = EpisodeRequest(
+        request = MediaDownloadRequest(
             imdb_id=imdb_id,
             played_path=path,
             jellyfin_item_id=jellyfin_item_id,
@@ -134,11 +143,11 @@ class TorrentSyncService:
         )
 
         # If this is a show and we're already downloading, interrupt current download
-        if torrent.is_show and self._current_request is not None:
+        if torrent.is_show and self._current_request is not None and extract_imdb_id_from_url(torrent.imdb_link) == self._current_request.imdb_id:
             self.logger.info("New episode requested — interrupting current download")
             self._interrupt_event.set()
 
-        await self._episode_queue.put(request)
+        await self._media_download_queue.put(request)
 
     def _find_episode_index(self, played_path: str, local_info: LocalFileInformation) -> int:
         """Find which file index in the torrent corresponds to the played path."""
@@ -164,7 +173,7 @@ class TorrentSyncService:
         self.logger.info("Download orchestrator started")
 
         while True:
-            request = await self._episode_queue.get()
+            request = await self._media_download_queue.get()
             self._current_request = request
             self._interrupt_event.clear()
 
@@ -180,7 +189,7 @@ class TorrentSyncService:
 
     # ── Movie download (simple, no prioritization) ────────────────────────────
 
-    async def _handle_movie_download(self, request: EpisodeRequest) -> None:
+    async def _handle_movie_download(self, request: MediaDownloadRequest) -> None:
         self.logger.info("Starting movie download: %s", request.torrent.title)
 
         save_path = await self.bittorrent.torrent_task(
@@ -196,7 +205,7 @@ class TorrentSyncService:
 
     # ── TV Show download (3-phase with priority) ──────────────────────────────
 
-    async def _handle_show_download(self, request: EpisodeRequest) -> None:
+    async def _handle_show_download(self, request: MediaDownloadRequest) -> None:
         self.logger.info(
             "Starting show download: %s (episode index: %d)",
             request.torrent.title, request.episode_file_index,
@@ -215,7 +224,7 @@ class TorrentSyncService:
         # Phase 3: Download other seasons of the show at 5 Mbps
         await self._phase_show(request)
 
-    async def _phase_episode(self, request: EpisodeRequest) -> bool:
+    async def _phase_episode(self, request: MediaDownloadRequest) -> bool:
         """Phase 1: Download only the selected episode at full speed."""
         self.logger.info("Phase 1: Downloading episode at full speed")
 
@@ -264,7 +273,7 @@ class TorrentSyncService:
 
         return False
 
-    async def _phase_season(self, request: EpisodeRequest) -> bool:
+    async def _phase_season(self, request: MediaDownloadRequest) -> bool:
         """Phase 2: Download the rest of the season at 20 Mbps."""
         self.logger.info("Phase 2: Downloading rest of season at 20 Mbps")
 
@@ -296,7 +305,7 @@ class TorrentSyncService:
 
         return False
 
-    async def _phase_show(self, request: EpisodeRequest) -> None:
+    async def _phase_show(self, request: MediaDownloadRequest) -> None:
         """Phase 3: Download other seasons of the show at 5 Mbps."""
         if not request.show_season:
             self.logger.info("No show_season info, skipping phase 3")
