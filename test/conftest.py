@@ -42,23 +42,29 @@ for fname in (
 ):
     Path(_PLACEHOLDER_DIR, fname).touch()
 
-os.environ.setdefault("NCORE_USERNAME", "tester")
-os.environ.setdefault("NCORE_PASSWORD", "secret")
-os.environ.setdefault("TORRENT_FILES_LOCATION", _TORRENTS_DIR)
-os.environ.setdefault("TORRENT_FILES_TARGET_LOCATION", _TORRENTS_DIR)
-os.environ.setdefault("VOLUME_SERIES_DIR", _SERIES_DIR)
-os.environ.setdefault("VOLUME_MOVIE_DIR", _MOVIES_DIR)
-os.environ.setdefault("VOLUME_PLACEHOLDER_TARGET_DIR", _PLACEHOLDER_DIR)
-os.environ.setdefault("VOLUME_DOWNLOADED_DIR", _DOWNLOADED_DIR)
-os.environ.setdefault("VOLUME_DOWNLOADED_TARGET_DIR", _DOWNLOADED_DIR)
-os.environ.setdefault("JELLYFIN_URL", "http://jellyfin.local:8096")
-os.environ.setdefault("JELLYFIN_USER_ID", "user-1")
-os.environ.setdefault("JELLYFIN_API_KEY", "key-1")
-os.environ.setdefault("TMDB_API_KEY", "tmdb-key")
-os.environ.setdefault("QBITTORRENT_HOST", "127.0.0.1")
-os.environ.setdefault("QBITTORRENT_PORT", "8080")
-os.environ.setdefault("QBITTORRENT_USERNAME", "admin")
-os.environ.setdefault("QBITTORRENT_PASSWORD", "adminadmin")
+def _ensure_env(name: str, default: str) -> None:
+    """Ensure test-critical env vars are non-empty, even if pre-set as ''."""
+    if not os.environ.get(name):
+        os.environ[name] = default
+
+
+_ensure_env("NCORE_USERNAME", "tester")
+_ensure_env("NCORE_PASSWORD", "secret")
+_ensure_env("TORRENT_FILES_LOCATION", _TORRENTS_DIR)
+_ensure_env("TORRENT_FILES_TARGET_LOCATION", _TORRENTS_DIR)
+_ensure_env("VOLUME_SERIES_DIR", _SERIES_DIR)
+_ensure_env("VOLUME_MOVIE_DIR", _MOVIES_DIR)
+_ensure_env("VOLUME_PLACEHOLDER_TARGET_DIR", _PLACEHOLDER_DIR)
+_ensure_env("VOLUME_DOWNLOADED_DIR", _DOWNLOADED_DIR)
+_ensure_env("VOLUME_DOWNLOADED_TARGET_DIR", _DOWNLOADED_DIR)
+_ensure_env("JELLYFIN_URL", "http://jellyfin.local:8096")
+_ensure_env("JELLYFIN_USER_ID", "user-1")
+_ensure_env("JELLYFIN_API_KEY", "key-1")
+_ensure_env("TMDB_API_KEY", "tmdb-key")
+_ensure_env("QBITTORRENT_HOST", "127.0.0.1")
+_ensure_env("QBITTORRENT_PORT", "8080")
+_ensure_env("QBITTORRENT_USERNAME", "admin")
+_ensure_env("QBITTORRENT_PASSWORD", "adminadmin")
 
 # ── 3.  Now safe to import application modules ───────────────────────────────
 import pytest
