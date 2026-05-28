@@ -250,12 +250,12 @@ class TorrentSyncService:
 
         # Wait for the episode to download
         symlink_paths = request.local_info.symlink_path.split(";")
-        episode_symlink = [symlink_paths[request.episode_file_index].strip()]
+        season_symlinks = [symlink_path.strip() for symlink_path in symlink_paths]
 
         completed = await self.bittorrent.wait_for_files_complete(
             torrent_hash,
             [qbt_file_index],
-            symlink_paths=episode_symlink,
+            symlink_paths=season_symlinks,
             interrupt_event=self._interrupt_event,
         )
 
