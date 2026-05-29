@@ -62,7 +62,7 @@ class Scraper:
             self.login()
 
         for page in range(1, max_pages + 1):
-            self.logger.info("Navigate to page %s. is_show=%f", page, is_show)
+            self.logger.info("Navigate to page %s. is_show=%s", page, is_show)
             url = self._get_url(page=page, is_show=is_show, is_hd=is_hd)
             self.__navigate(url)
 
@@ -200,7 +200,7 @@ class Scraper:
                     raise ValueError(f"No valid 'id' parameter found in URL: {torrent.detail_link}")
             
             torrent.torrent_id = int(match.group(1))
-            torrent.quality = self._get_torrent_quality(torrent.title) if is_hd else "SD"
+            torrent.quality = self._get_torrent_quality(torrent.title) if is_hd else Quality.SD
             torrent.download_link = self.config.get_torrent_download_url(torrent_id=torrent.torrent_id, key=torrent.key)
             torrent.seeders_number = seeder.text
             torrent.leechers_number = leecher.text
@@ -400,6 +400,10 @@ class Scraper:
                 self.driver.get(url)
                 successful = True
             except Exception as e:
+                tries += 1
                 self.logger.error("Error while navigating to the webpage. %s Retrying... %s/%s Exception: %s", self.driver.current_url, tries, max_tries, e)
+                time.sleep(self.config.sleep_time_max)
+        if not successful:
+            raise RuntimeError(f"Failed to navigate to {url} after {max_tries} attempts")
         self.logger.info("Landed on %s", self.driver.current_url)
         self.__sleep()

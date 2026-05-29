@@ -59,8 +59,9 @@ class DataProcessing:
                 best[key] = torrent
 
         for torrent in best.values():
-            movie = Movie(torrent_id=torrent.id)
-            self.config.movie_repository.save(movie)
+            existing = self.config.movie_repository.find_first_by(torrent_id=torrent.id)
+            if existing is None:
+                self.config.movie_repository.save(Movie(torrent_id=torrent.id))
 
     def _process_show_torrent_data(self, torrents: list[Torrent]) -> None:
         """
@@ -137,27 +138,27 @@ class DataProcessing:
             shows: list[tuple[Torrent, ShowSeason]] = []
 
             # Show season 
-            show = Show(imdb_link=imdb_link)
-            self.config.show_repository.save(show)
+            show = self.config.show_repository.find_first_by(imdb_link=imdb_link)
+            if show is None:
+                show = self.config.show_repository.save(Show(imdb_link=imdb_link))
+            show_id = show.id
 
             for t in series_torrents:
                 show_season = ShowSeason(torrent_id=t.id)
 
-                season = re.findall(r"S(\d{1,2})", t.title)
-                season_to = re.findall(r"S(\d{1,2})", t.title)
+                season_matches = re.findall(r"S(\d{1,2})", t.title)
                 episodes = re.findall(r"E(\d{1,2})", t.title)
 
-                if len(season) == 0:
+                if len(season_matches) == 0:
                     continue
 
                 if is_an_episode(t):
                     continue
 
-                if len(season) > 0:
-                    show_season.season = int(season[0])
+                show_season.season = int(season_matches[0])
 
-                if len(season_to) > 1:
-                    show_season.season_to = int(season_to[1])
+                if len(season_matches) > 1:
+                    show_season.season_to = int(season_matches[1])
 
                 if len(episodes) > 1:
                     show_season.episode = int(episodes[0])
@@ -181,6 +182,5 @@ class DataProcessing:
                     if better(candidate, best):
                         best = candidate
 
-                show_id = self.config.show_repository.find_first_by(imdb_link=imdb_link).id
                 best[1].show_id = show_id
                 self.config.show_season_repository.save(best[1])

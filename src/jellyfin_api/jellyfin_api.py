@@ -70,4 +70,4 @@ class JellyfinApi:
             self.logger.info('Jellyfin refresh has been triggered.')
         except requests.RequestException as exc:
             self.logger.error("Failed to refresh item: %s Exception: %s", item_id, exc)
-            return []
+            return

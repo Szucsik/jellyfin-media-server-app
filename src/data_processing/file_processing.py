@@ -227,6 +227,9 @@ class FileProcessing:
                 if target_directory == "":
                     show_name = utils.get_name_by_id_from_tmdb(imdb_id=imdb_id, api_key=self.config.tmdb_api_key)  # IMDB ID is the same for all the seasons!
                     self.logger.info("Name of the show has been queried from TMDB API: %s", show_name)
+                    if not show_name:
+                        self.logger.error("TMDB returned no name for %s; skipping show.", imdb_id)
+                        break
                     target_directory = Path(self.config.symlink_series_directory) / Path(show_name)
                 target_directory.mkdir(parents=True, exist_ok=True)
                 
