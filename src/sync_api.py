@@ -44,7 +44,6 @@ def _run_sync_loop() -> None:
         sync_service = TorrentSyncService(config=_config)
 
         async def _guarded_run() -> None:
-            _stop_event.clear()
             poll_task = asyncio.create_task(sync_service.run())
 
             async def _wait_for_stop() -> None:
@@ -84,6 +83,8 @@ def toggle_sync(enabled: bool) -> dict:
 
     with _lock:
         if not _running:
+            # Also cancels a pending auto-start during the startup delay window.
+            _stop_event.set()
             return {"status": "already_stopped"}
         _stop_event.set()
         _running = False
