@@ -41,7 +41,7 @@ class JellyfinApi:
         url = f"{self.server_url}/Sessions"
 
         try:
-            resp = requests.get(url, headers=self._headers(), timeout=300)
+            resp = requests.get(url, headers=self._headers(), timeout=10)
             resp.raise_for_status()
             data = resp.json()
             return data

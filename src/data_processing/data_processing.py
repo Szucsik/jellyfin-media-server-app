@@ -16,13 +16,13 @@ class DataProcessing:
         """Start the data processing for both movies and shows"""
         self.logger.info("Start the data processing for both movies and shows")
         torrents = self.config.torrent_repository.get_all()
-        self.logger.info("Torrents collected: %s", torrents.count)
+        self.logger.info("Torrents collected: %s", len(torrents))
 
         shows = [t for t in torrents if t.is_show]
-        self.logger.info("Shows collected: %s", shows.count)
+        self.logger.info("Shows collected: %s", len(shows))
 
         movies = [t for t in torrents if not t.is_show]
-        self.logger.info("Movies collected: %s", movies.count)
+        self.logger.info("Movies collected: %s", len(movies))
 
         self._process_movie_torrent_data(movies)
         self._process_show_torrent_data(shows)

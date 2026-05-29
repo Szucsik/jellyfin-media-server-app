@@ -335,10 +335,8 @@ class TestProcessPlayedItem:
         }))
         assert svc._media_download_queue.empty()
 
-    def test_movie_request_short_circuits_due_to_triggered_imdb_logic(self, fake_config, repos):
-        """Documents current behavior: the duplicate-click guard in
-        ``_process_played_item`` appends to ``triggered_imdb_ids`` BEFORE the
-        guard check runs, so even the first movie play is suppressed."""
+    def test_movie_request_is_queued_on_first_play(self, fake_config, repos):
+        """First play of a movie is enqueued and recorded as in-flight."""
         svc = _make_service(fake_config)
         torrent = _save_movie_torrent(repos, imdb="tt5000001", torrent_id=5001)
         repos.movie.save(__import__("models.movie", fromlist=["Movie"]).Movie(torrent_id=torrent.id))
@@ -356,9 +354,8 @@ class TestProcessPlayedItem:
         }
         asyncio.run(svc._process_played_item(item))
 
-        assert svc._media_download_queue.qsize() == 0
-        # IMDb ID is still recorded so subsequent clicks are also suppressed.
-        assert "tt5000001" in svc.triggered_imdb_ids
+        assert svc._media_download_queue.qsize() == 1
+        assert ("jf-001", 0) in svc._inflight_keys
 
     def test_movie_repeated_clicks_remain_suppressed(self, fake_config, repos):
         svc = _make_service(fake_config)
@@ -369,7 +366,8 @@ class TestProcessPlayedItem:
         item = {"NowPlayingItem": {"Path": "/media/movies/m [imdbid-tt5000002]/m.mkv", "Id": "x"}}
         asyncio.run(svc._process_played_item(item))
         asyncio.run(svc._process_played_item(item))
-        assert svc._media_download_queue.qsize() == 0
+        # First call queued; second call deduped via _inflight_keys.
+        assert svc._media_download_queue.qsize() == 1
 
     def test_show_request_resolves_episode_index_and_show_season(self, fake_config, repos):
         svc = _make_service(fake_config)

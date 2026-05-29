@@ -62,7 +62,9 @@ class TorrentSyncService:
         self.bittorrent = BittorrentAPI(config)
         self.logger = config.get_logger(__name__)
 
-        self.triggered_imdb_ids: list[str] = []
+        # Set of (jellyfin_item_id, episode_file_index) tuples currently queued or downloading.
+        # Prevents re-queuing the same playback on every 1-second Jellyfin poll.
+        self._inflight_keys: set[tuple[str, int]] = set()
         self._media_download_queue: asyncio.Queue[MediaDownloadRequest] = asyncio.Queue()
         self._interrupt_event: asyncio.Event = asyncio.Event()
         self._current_request: Optional[MediaDownloadRequest] = None
@@ -88,7 +90,8 @@ class TorrentSyncService:
     # ── Process a played item into a download request ─────────────────────────
 
     async def _process_played_item(self, item: dict) -> None:
-        path = item.get('NowPlayingItem', {}).get('Path')
+        now_playing = item.get('NowPlayingItem', {})
+        path = now_playing.get('Path')
 
         if path is None:
             return
@@ -99,9 +102,6 @@ class TorrentSyncService:
             self.logger.warning("No IMDb ID in path for %s", path)
             return
 
-        self.triggered_imdb_ids.append(imdb_id)
-        self.logger.info("Played: %s (IMDb: %s)", path, imdb_id)
-
         loop = asyncio.get_running_loop()
 
         torrent: Optional[Torrent] = await loop.run_in_executor(
@@ -109,10 +109,6 @@ class TorrentSyncService:
         )
         if not torrent:
             self.logger.warning("No torrent in DB for IMDb ID %s", imdb_id)
-            return
-        
-        # If its a movie we've already triggered a download for, don't trigger again (prevents double triggering when user clicks play multiple times quickly)
-        if imdb_id in self.triggered_imdb_ids and not torrent.is_show:
             return
 
         local_info: Optional[LocalFileInformation] = await loop.run_in_executor(
@@ -122,15 +118,29 @@ class TorrentSyncService:
             self.logger.warning("No local torrent file found for torrent %s", torrent.title)
             return
 
-        # Determine which episode file is being played
         episode_file_index = self._find_episode_index(path, local_info)
+        jellyfin_item_id = now_playing.get('Id', '')
+        key = (jellyfin_item_id, episode_file_index)
 
-        # Look up the ShowSeason for this torrent
+        # Jellyfin sessions return the same NowPlayingItem on every poll while
+        # playback continues; skip if we've already queued or are downloading it.
+        if key in self._inflight_keys:
+            return
+
+        # If we're currently downloading the SAME show but a different episode,
+        # interrupt the running phase so the new episode takes over.
+        current = self._current_request
+        if torrent.is_show and current is not None:
+            current_imdb = extract_imdb_id_from_url(current.torrent.imdb_link)
+            if current_imdb == imdb_id and (current.jellyfin_item_id, current.episode_file_index) != key:
+                self.logger.info("New episode requested — interrupting current download")
+                self._interrupt_event.set()
+
         show_season: Optional[ShowSeason] = await loop.run_in_executor(
             None, lambda: self.config.show_season_repository.find_first_by(torrent_id=torrent.id),
         )
 
-        jellyfin_item_id = item.get('NowPlayingItem', {}).get('Id', '')
+        self.logger.info("Played: %s (IMDb: %s)", path, imdb_id)
 
         request = MediaDownloadRequest(
             imdb_id=imdb_id,
@@ -142,11 +152,7 @@ class TorrentSyncService:
             show_season=show_season,
         )
 
-        # If this is a show and we're already downloading, interrupt current download
-        if torrent.is_show and self._current_request is not None and extract_imdb_id_from_url(torrent.imdb_link) == self._current_request.imdb_id:
-            self.logger.info("New episode requested — interrupting current download")
-            self._interrupt_event.set()
-
+        self._inflight_keys.add(key)
         await self._media_download_queue.put(request)
 
     def _find_episode_index(self, played_path: str, local_info: LocalFileInformation) -> int:
@@ -186,6 +192,7 @@ class TorrentSyncService:
                 self.logger.error("Download failed for %s: %s", request.torrent.title, exc)
             finally:
                 self._current_request = None
+                self._inflight_keys.discard((request.jellyfin_item_id, request.episode_file_index))
 
     # ── Movie download (simple, no prioritization) ────────────────────────────
 

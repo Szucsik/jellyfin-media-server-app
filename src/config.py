@@ -20,8 +20,8 @@ class Configuration:
 
     logger = logging.getLogger(__name__)
 
-    def get_logger(self, name: str) -> logging:
-        """a"""
+    def get_logger(self, name: str) -> logging.Logger:
+        """Return a module-scoped logger."""
         return logging.getLogger(name)
 
     # Db repositories

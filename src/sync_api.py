@@ -20,20 +20,19 @@ def _run_sync_loop() -> None:
     logger = _config.get_logger(__name__)
 
     try:
-        config = Configuration()
         logger.info("Sync service started")
 
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-        sync_service = TorrentSyncService(config=config)
+        sync_service = TorrentSyncService(config=_config)
 
         async def _guarded_run() -> None:
             _stop_event.clear()
             poll_task = asyncio.create_task(sync_service.run())
 
             async def _wait_for_stop() -> None:
-                await asyncio.get_event_loop().run_in_executor(None, _stop_event.wait)
+                await asyncio.get_running_loop().run_in_executor(None, _stop_event.wait)
 
             stop_task = asyncio.create_task(_wait_for_stop())
 
