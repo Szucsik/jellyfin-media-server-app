@@ -81,12 +81,15 @@ class BittorrentAPI:
 
         # Wait for metadata
         self.logger.info("Waiting for metadata…")
+        deadline = asyncio.get_running_loop().time() + 300  # 5 minutes
         while True:
             torrents = await loop.run_in_executor(
                 None, lambda: client.torrents_info(torrent_hashes=torrent_hash)
             )
             if torrents and torrents[0].state not in ("metaDL", "checkingResumeData"):
                 break
+            if asyncio.get_running_loop().time() > deadline:
+                raise TimeoutError(f"Timed out waiting for metadata of torrent {torrent_hash}")
             await asyncio.sleep(1)
 
         return torrent_hash
@@ -268,10 +271,15 @@ class BittorrentAPI:
             return
 
         minutes = seconds / 60
+        placeholders_dir = self.config.placeholders_directory
 
         for symlink_path in symlink_paths:
             symlink = Path(symlink_path)
             if symlink.is_symlink():
+                # Never replace a symlink that already points to a real downloaded file.
+                current_target = str(symlink.readlink())
+                if placeholders_dir not in current_target:
+                    continue
                 symlink.unlink()
             if minutes >= 60:
                 symlink.symlink_to(self.config.placeholder_one_hr_left_path)
