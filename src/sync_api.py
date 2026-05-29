@@ -13,11 +13,27 @@ _running = False
 _task_thread: threading.Thread | None = None
 _stop_event = threading.Event()
 _config = Configuration()
+_logger = _config.get_logger(__name__)
+
+AUTO_START_DELAY_SECONDS = 30
+
+
+def _start_sync_thread() -> bool:
+    """Start the sync worker thread. Returns True if started, False if already running."""
+    global _running, _task_thread
+    with _lock:
+        if _running:
+            return False
+        _running = True
+        _stop_event.clear()
+        _task_thread = threading.Thread(target=_run_sync_loop, daemon=True)
+        _task_thread.start()
+        return True
 
 
 def _run_sync_loop() -> None:
-    global _running, _config
-    logger = _config.get_logger(__name__)
+    global _running
+    logger = _logger
 
     try:
         logger.info("Sync service started")
@@ -54,20 +70,36 @@ def _run_sync_loop() -> None:
 @app.post("/sync")
 def toggle_sync(enabled: bool) -> dict:
     """Start or stop the Jellyfin & BitTorrent sync loop."""
-    global _running, _task_thread, _config
+    global _running
 
     with _lock:
-        if enabled:
-            if _running:
-                return {"status": "already_running"}
-            _running = True
-            _stop_event.clear()
-            _task_thread = threading.Thread(target=_run_sync_loop, daemon=True)
-            _task_thread.start()
+        currently_running = _running
+
+    if enabled:
+        if currently_running:
+            return {"status": "already_running"}
+        if _start_sync_thread():
             return {"status": "started"}
+        return {"status": "already_running"}
+
+    with _lock:
+        if not _running:
+            return {"status": "already_stopped"}
+        _stop_event.set()
+        _running = False
+    return {"status": "stopping"}
+
+
+@app.on_event("startup")
+def _auto_start_sync() -> None:
+    """Automatically start the sync loop shortly after the app boots."""
+    def _delayed_start() -> None:
+        _stop_event.wait(AUTO_START_DELAY_SECONDS)
+        if _stop_event.is_set():
+            return
+        if _start_sync_thread():
+            _logger.info("Sync loop auto-started after %ds", AUTO_START_DELAY_SECONDS)
         else:
-            if not _running:
-                return {"status": "already_stopped"}
-            _stop_event.set()
-            _running = False
-            return {"status": "stopping"}
+            _logger.info("Sync loop auto-start skipped: already running")
+
+    threading.Thread(target=_delayed_start, daemon=True).start()
