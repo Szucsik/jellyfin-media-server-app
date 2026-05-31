@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import re
+from typing import Counter
 
 import requests
 import torrentool.api as torrentool
@@ -37,6 +38,47 @@ class FileProcessing:
         await self.__download_torrent_files()
         self.__generate_symlink_to_placeholders()
 
+    async def download_torrent_by_id(self, id: int):
+        """Download torrent files by torrent id, not ncore torrent id but torrent ids from the database"""
+        associated_torrent: Torrent = self.config.torrent_repository.find_first_by(torrent_id=id)
+        path = f"{self.config.torrent_files_target_location}/{associated_torrent.torrent_id}.torrent"
+        if not os.path.exists(path):
+            self.logger.info("Starting to download torrent: %s", associated_torrent.title)
+            max_tries = 100
+            current_tries = 0
+            response_status = False
+
+            while current_tries < max_tries:
+                try:
+                    self.logger.info("Trying to download")
+                    response = requests.get(associated_torrent.download_link, headers=headers)
+                    if response.status_code == 200:
+                        response_status = True
+                        break
+                    else:
+                        self.logger.info("Non-200 response (%s), attempt: %s/%s", response.status_code, current_tries, max_tries)
+                except:
+                    self.logger.info("Download failed, attempt: %s/%s", current_tries, max_tries)
+
+                current_tries += 1
+                wait_time = 5 * current_tries
+                self.logger.info("Waiting: %s seconds", wait_time)
+                await asyncio.sleep(wait_time)
+
+            if not response_status:
+                self.logger.error("Couldn't download torrent: %s", associated_torrent.title)
+                raise Exception(f"Couldn't download torrent: {associated_torrent.title}")
+
+            with open(path, "wb") as f:
+                f.write(response.content)
+            self.logger.info("Torrent downloaded successfully. %s out of %s", torrents_list.index(associated_torrent), len(torrents_list))
+
+        else:
+            self.logger.info("Torrent file already exists:%s | %s", associated_torrent.title, associated_torrent.torrent_id)
+
+        self.__get_torrent_media_file_information(path=path, torrent=associated_torrent)
+
+    
     async def __download_torrent_files(self):
         """Download all torrent files that are in the database and if they are not exists"""
         self.logger.info("Download torrents process started")
@@ -227,9 +269,6 @@ class FileProcessing:
                 if target_directory == "":
                     show_name = utils.get_name_by_id_from_tmdb(imdb_id=imdb_id, api_key=self.config.tmdb_api_key)  # IMDB ID is the same for all the seasons!
                     self.logger.info("Name of the show has been queried from TMDB API: %s", show_name)
-                    if not show_name:
-                        self.logger.error("TMDB returned no name for %s; skipping show.", imdb_id)
-                        break
                     target_directory = Path(self.config.symlink_series_directory) / Path(show_name)
                 target_directory.mkdir(parents=True, exist_ok=True)
                 
@@ -265,9 +304,6 @@ class FileProcessing:
 
             local_file: LocalFileInformation = self.config.local_files_repository.find_first_by(torrent_id=associated_torrent.id)
             files: list[str] = local_file.main_media_files_local_path.split(';')
-
-            symlink_paths: list[str] = []
-            original_paths: list[str] = []
 
             for file in files:
                 file_path_parts = Path(file).parts
@@ -337,11 +373,7 @@ class FileProcessing:
 
                 Path(symlink_path).symlink_to(self.config.placeholder_starter_path)
 
-                symlink_paths.append(str(symlink_path))
-                original_paths.append(file)
-
-            if symlink_paths:
-                local_file.symlink_path = ";".join(symlink_paths)
-                local_file.original_file_path = ";".join(original_paths)
+                local_file.symlink_path = str(symlink_path)
+                local_file.original_file_path = file
                 self.config.local_files_repository.save(local_file)
             
