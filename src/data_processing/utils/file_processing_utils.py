@@ -35,6 +35,7 @@ class Show:
 # ── constants ─────────────────────────────────────────────────────────────────
 
 VIDEO_EXTS = {".mkv", ".mp4", ".avi", ".m4v", ".mov"}
+EXCLUDED_SHOW_DIRS = {"sample", "samples", "extra", "extras"}
 
 # Matches quality/source tokens that appear before the show name in flat filenames
 # e.g. "sln-720p", "1080p", "WEBRip", "BluRay"
@@ -55,6 +56,13 @@ class FileProcessingUtils:
 
     def is_sample(self, path_parts: list[str]) -> bool:
         return any(re.fullmatch(r"[Ss]ample.*", p) for p in path_parts)
+
+    def is_excluded_show_directory(self, path_parts: list[str]) -> bool:
+        """Exclude files under non-standard show directories (case-insensitive)."""
+        if len(path_parts) <= 1:
+            return False
+        directories = path_parts[:-1]
+        return any(part.lower() in EXCLUDED_SHOW_DIRS for part in directories)
 
     def parse_show_info(self, folder: str) -> tuple[str, str | None]:
         """Parse show name and year from a folder name."""
@@ -242,7 +250,7 @@ class FileProcessingUtils:
 
             if ext not in VIDEO_EXTS:
                 continue
-            if self.is_sample(path_parts):
+            if self.is_sample(path_parts) or self.is_excluded_show_directory(path_parts):
                 continue
 
             # Use folder name when available; fall back to filename-level parsing

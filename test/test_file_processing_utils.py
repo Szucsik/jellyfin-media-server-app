@@ -154,6 +154,20 @@ class TestParse:
         eps = shows[0].seasons[0].episodes
         assert len(eps) == 1
 
+    @pytest.mark.parametrize(
+        "folder_name",
+        ["extras", "EXTRAS", "Extras", "sample", "Samples"],
+    )
+    def test_skips_excluded_show_directories(self, utils, folder_name):
+        lines = [
+            f"Show.S01/{folder_name}/Show.S01E99.mkv",
+            "Show.S01/Show.S01E01.mkv",
+        ]
+        shows = utils.parse(lines)
+        eps = shows[0].seasons[0].episodes
+        assert len(eps) == 1
+        assert eps[0].episode == 1
+
     def test_skips_non_video(self, utils):
         lines = ["Show.S01/notes.txt"]
         assert utils.parse(lines) == []
