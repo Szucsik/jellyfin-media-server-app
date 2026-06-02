@@ -165,7 +165,7 @@ class BittorrentAPI:
 
             # Check if all target files are complete
             target_files = [f for f in files if f.index in file_indices]
-            all_complete = all(f.progress >= 1.0 for f in target_files)
+            all_complete = bool(target_files) and all(f.progress >= 1.0 for f in target_files)
 
             if all_complete:
                 return True
@@ -183,6 +183,14 @@ class BittorrentAPI:
                 t = torrents[0]
                 speed_mb = t.dlspeed / 1e6
                 eta_s = t.get("eta", -1)
+
+                # qBittorrent often reports unknown ETA for selective downloads.
+                # Fall back to selected-files remaining bytes / current speed.
+                if eta_s < 0 or eta_s == 8640000:
+                    if t.dlspeed > 0 and total_size > 0:
+                        remaining = max(total_size - downloaded, 0)
+                        eta_s = int(remaining / t.dlspeed)
+
                 eta_str = f"{eta_s // 60}m {eta_s % 60}s" if eta_s >= 0 else "unknown"
 
                 self.logger.info(

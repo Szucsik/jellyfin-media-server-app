@@ -231,6 +231,22 @@ class TestWaitForFilesComplete:
         assert result is True
         assert api._client.torrents_files.call_count == 2
 
+    def test_does_not_complete_when_target_files_temporarily_missing(self, fake_config):
+        api = _make_api(fake_config)
+        api._client = MagicMock()
+        api._client.torrents_files.side_effect = [
+            [_torrent_file("other.mkv", 1, progress=0.2)],
+            [_torrent_file("a.mkv", 0, progress=1.0)],
+        ]
+        api._client.torrents_info.return_value = [_torrent_info(eta=-1, dlspeed=1_000_000)]
+
+        _real_sleep = asyncio.sleep
+        with patch("jellyfin_api.bittorrentapi.asyncio.sleep", new=lambda s: _real_sleep(0)):
+            result = asyncio.run(api.wait_for_files_complete("h", [0]))
+
+        assert result is True
+        assert api._client.torrents_files.call_count == 2
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  wait_for_torrent_complete

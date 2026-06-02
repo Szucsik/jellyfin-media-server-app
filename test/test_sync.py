@@ -593,6 +593,7 @@ class TestPhaseEpisode:
         wait_call = svc.bittorrent.wait_for_files_complete.await_args
         assert wait_call.args[0] == "hash1"
         assert wait_call.args[1] == [1]
+        assert wait_call.kwargs["symlink_paths"] == ["/media/series/X/Season 1/E02.mkv"]
         svc.jellyfin.refresh_item.assert_called_once_with(f"jf-{request.torrent.torrent_id}")
 
     def test_returns_true_when_qbt_file_missing_to_avoid_blocking(self, fake_config, repos):
