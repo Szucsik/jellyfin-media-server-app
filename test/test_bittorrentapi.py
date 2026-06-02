@@ -241,6 +241,7 @@ class TestWaitForTorrentComplete:
         api = _make_api(fake_config)
         api._client = MagicMock()
         api._client.torrents_info.return_value = [_torrent_info(state="uploading", progress=1.0)]
+        api._client.torrents_files.return_value = [_torrent_file("a.mkv", 0, progress=1.0, priority=1)]
 
         assert asyncio.run(api.wait_for_torrent_complete("h")) is True
 
@@ -263,6 +264,10 @@ class TestWaitForTorrentComplete:
             [_torrent_info(state="downloading", progress=0.3)],
             [_torrent_info(state="downloading", progress=1.0)],
         ]
+        api._client.torrents_files.side_effect = [
+            [_torrent_file("a.mkv", 0, progress=0.3, priority=1)],
+            [_torrent_file("a.mkv", 0, progress=1.0, priority=1)],
+        ]
 
         _real_sleep = asyncio.sleep
         with patch("jellyfin_api.bittorrentapi.asyncio.sleep", new=lambda s: _real_sleep(0)):
@@ -275,9 +280,29 @@ class TestWaitForTorrentComplete:
             [],
             [_torrent_info(state="uploading", progress=1.0)],
         ]
+        api._client.torrents_files.return_value = [_torrent_file("a.mkv", 0, progress=1.0, priority=1)]
         _real_sleep = asyncio.sleep
         with patch("jellyfin_api.bittorrentapi.asyncio.sleep", new=lambda s: _real_sleep(0)):
             assert asyncio.run(api.wait_for_torrent_complete("h")) is True
+
+    def test_does_not_finish_when_done_state_but_enabled_files_incomplete(self, fake_config):
+        api = _make_api(fake_config)
+        api._client = MagicMock()
+        api._client.torrents_info.side_effect = [
+            [_torrent_info(state="uploading", progress=1.0)],
+            [_torrent_info(state="uploading", progress=1.0)],
+        ]
+        api._client.torrents_files.side_effect = [
+            [_torrent_file("a.mkv", 0, progress=0.5, priority=1)],
+            [_torrent_file("a.mkv", 0, progress=1.0, priority=1)],
+        ]
+
+        _real_sleep = asyncio.sleep
+        with patch("jellyfin_api.bittorrentapi.asyncio.sleep", new=lambda s: _real_sleep(0)):
+            assert asyncio.run(api.wait_for_torrent_complete("h")) is True
+
+        assert api._client.torrents_info.call_count == 2
+        assert api._client.torrents_files.call_count == 2
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -235,7 +235,18 @@ class BittorrentAPI:
             if symlink_paths:
                 self._update_eta_placeholders(eta_s, symlink_paths)
 
-            if t.state in self.DONE_STATES or t.progress >= 1.0:
+            # qBittorrent can briefly report a done-like torrent state after a
+            # previous selective download. Verify enabled files are complete
+            # before we consider the torrent complete.
+            files = await loop.run_in_executor(
+                None, lambda: client.torrents_files(torrent_hash=torrent_hash)
+            )
+            enabled_files = [f for f in files if getattr(f, "priority", 1) > 0]
+
+            if enabled_files:
+                if all(f.progress >= 1.0 for f in enabled_files):
+                    return True
+            elif t.state in self.DONE_STATES or t.progress >= 1.0:
                 return True
 
             await asyncio.sleep(self.POLL_INTERVAL)
