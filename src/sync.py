@@ -66,8 +66,10 @@ class TorrentSyncService:
         # Prevents re-queuing the same playback on every 1-second Jellyfin poll.
         self._inflight_keys: set[tuple[str, int]] = set()
         self._media_download_queue: asyncio.Queue[MediaDownloadRequest] = asyncio.Queue()
-        self._interrupt_event: asyncio.Event = asyncio.Event()
-        self._current_request: Optional[MediaDownloadRequest] = None
+        self._active_download_tasks: set[asyncio.Task[None]] = set()
+        self._show_interrupt_events: dict[str, asyncio.Event] = {}
+        self._show_current_requests: dict[str, MediaDownloadRequest] = {}
+        self._pending_show_requests: dict[str, MediaDownloadRequest] = {}
 
     # ── Jellyfin polling task ─────────────────────────────────────────────────
 
@@ -127,15 +129,6 @@ class TorrentSyncService:
         if key in self._inflight_keys:
             return
 
-        # If a show download is currently running and a newer playback request
-        # arrives, interrupt the running phase so the new request can take over.
-        current = self._current_request
-        if current is not None and current.torrent.is_show:
-            current_key = (current.jellyfin_item_id, current.episode_file_index)
-            if current_key != key:
-                self.logger.info("New playback requested — interrupting current show download")
-                self._interrupt_event.set()
-
         show_season: Optional[ShowSeason] = await loop.run_in_executor(
             None, lambda: self.config.show_season_repository.find_first_by(torrent_id=torrent.id),
         )
@@ -153,6 +146,22 @@ class TorrentSyncService:
         )
 
         self._inflight_keys.add(key)
+
+        if torrent.is_show:
+            current = self._show_current_requests.get(imdb_id)
+            if current is not None:
+                current_key = (current.jellyfin_item_id, current.episode_file_index)
+                if current_key != key:
+                    previous_pending = self._pending_show_requests.get(imdb_id)
+                    if previous_pending is not None:
+                        self._inflight_keys.discard(
+                            (previous_pending.jellyfin_item_id, previous_pending.episode_file_index),
+                        )
+                    self._pending_show_requests[imdb_id] = request
+                    self.logger.info("New episode requested for %s — interrupting current show download", imdb_id)
+                    self._show_interrupt_events[imdb_id].set()
+                    return
+
         await self._media_download_queue.put(request)
 
     def _find_episode_index(self, played_path: str, local_info: LocalFileInformation) -> int:
@@ -175,24 +184,43 @@ class TorrentSyncService:
     # ── Download orchestrator ─────────────────────────────────────────────────
 
     async def _download_orchestrator(self) -> None:
-        """Main download loop that processes episode requests with priority."""
+        """Main intake loop that launches downloads in parallel."""
         self.logger.info("Download orchestrator started")
 
         while True:
             request = await self._media_download_queue.get()
-            self._current_request = request
-            self._interrupt_event.clear()
+            task = asyncio.create_task(self._execute_request(request))
+            self._active_download_tasks.add(task)
+            task.add_done_callback(self._active_download_tasks.discard)
 
-            try:
-                if request.torrent.is_show:
-                    await self._handle_show_download(request)
-                else:
-                    await self._handle_movie_download(request)
-            except Exception as exc:
-                self.logger.error("Download failed for %s: %s", request.torrent.title, exc)
-            finally:
-                self._current_request = None
-                self._inflight_keys.discard((request.jellyfin_item_id, request.episode_file_index))
+    async def _execute_request(self, request: MediaDownloadRequest) -> None:
+        try:
+            if request.torrent.is_show:
+                await self._execute_show_request(request)
+            else:
+                await self._handle_movie_download(request)
+        except Exception as exc:
+            self.logger.error("Download failed for %s: %s", request.torrent.title, exc)
+        finally:
+            self._inflight_keys.discard((request.jellyfin_item_id, request.episode_file_index))
+
+    async def _execute_show_request(self, request: MediaDownloadRequest) -> None:
+        imdb_id = request.imdb_id
+        interrupt_event = asyncio.Event()
+        self._show_current_requests[imdb_id] = request
+        self._show_interrupt_events[imdb_id] = interrupt_event
+
+        try:
+            await self._handle_show_download(request, interrupt_event)
+        finally:
+            current = self._show_current_requests.get(imdb_id)
+            if current is request:
+                self._show_current_requests.pop(imdb_id, None)
+                self._show_interrupt_events.pop(imdb_id, None)
+
+            pending = self._pending_show_requests.pop(imdb_id, None)
+            if pending is not None:
+                await self._media_download_queue.put(pending)
 
     # ── Movie download (simple, no prioritization) ────────────────────────────
 
@@ -213,28 +241,40 @@ class TorrentSyncService:
 
     # ── TV Show download (3-phase with priority) ──────────────────────────────
 
-    async def _handle_show_download(self, request: MediaDownloadRequest) -> None:
+    async def _handle_show_download(
+        self,
+        request: MediaDownloadRequest,
+        interrupt_event: Optional[asyncio.Event] = None,
+    ) -> None:
         self.logger.info(
             "Starting show download: %s (episode index: %d)",
             request.torrent.title, request.episode_file_index,
         )
 
+        interrupt_event = interrupt_event or asyncio.Event()
+
         # Phase 1: Download the selected episode at full speed
-        completed = await self._phase_episode(request)
+        completed = await self._phase_episode(request, interrupt_event)
         if not completed:
             return  # Interrupted, new request will take over
 
         # Phase 2: Download the rest of the season at 20 Mbps
-        completed = await self._phase_season(request)
+        completed = await self._phase_season(request, interrupt_event)
         if not completed:
             return  # Interrupted
 
         # Phase 3: Download other seasons of the show at 5 Mbps
-        await self._phase_show(request)
+        await self._phase_show(request, interrupt_event)
 
-    async def _phase_episode(self, request: MediaDownloadRequest) -> bool:
+    async def _phase_episode(
+        self,
+        request: MediaDownloadRequest,
+        interrupt_event: Optional[asyncio.Event] = None,
+    ) -> bool:
         """Phase 1: Download only the selected episode at full speed."""
         self.logger.info("Phase 1: Downloading episode at full speed")
+
+        interrupt_event = interrupt_event or asyncio.Event()
 
         torrent_hash = await self.bittorrent.add_torrent(request.local_info.torrent_file_local_path)
         torrent_files = await self.bittorrent.get_torrent_files(torrent_hash)
@@ -264,7 +304,7 @@ class TorrentSyncService:
             torrent_hash,
             [qbt_file_index],
             symlink_paths=[episode_symlink],
-            interrupt_event=self._interrupt_event,
+            interrupt_event=interrupt_event,
             on_placeholder_updated=lambda: self.jellyfin.refresh_item(request.jellyfin_item_id),
         )
 
@@ -282,9 +322,15 @@ class TorrentSyncService:
 
         return False
 
-    async def _phase_season(self, request: MediaDownloadRequest) -> bool:
+    async def _phase_season(
+        self,
+        request: MediaDownloadRequest,
+        interrupt_event: Optional[asyncio.Event] = None,
+    ) -> bool:
         """Phase 2: Download the rest of the season at 20 Mbps."""
         self.logger.info("Phase 2: Downloading rest of season at 20 Mbps")
+
+        interrupt_event = interrupt_event or asyncio.Event()
 
         torrent_hash = await self.bittorrent.add_torrent(request.local_info.torrent_file_local_path)
         torrent_files = await self.bittorrent.get_torrent_files(torrent_hash)
@@ -325,7 +371,7 @@ class TorrentSyncService:
             torrent_hash,
             season_qbt_indices,
             symlink_paths=season_symlinks,
-            interrupt_event=self._interrupt_event,
+            interrupt_event=interrupt_event,
             on_placeholder_updated=lambda: self.jellyfin.refresh_item(request.jellyfin_item_id),
         )
 
@@ -339,8 +385,14 @@ class TorrentSyncService:
 
         return False
 
-    async def _phase_show(self, request: MediaDownloadRequest) -> None:
+    async def _phase_show(
+        self,
+        request: MediaDownloadRequest,
+        interrupt_event: Optional[asyncio.Event] = None,
+    ) -> None:
         """Phase 3: Download other seasons of the show at 5 Mbps."""
+        interrupt_event = interrupt_event or asyncio.Event()
+
         if not request.show_season:
             self.logger.info("No show_season info, skipping phase 3")
             return
@@ -362,7 +414,7 @@ class TorrentSyncService:
         self.logger.info("Phase 3: Downloading %d other season(s) at 5 Mbps", len(other_seasons))
 
         for season in other_seasons:
-            if self._interrupt_event.is_set():
+            if interrupt_event.is_set():
                 self.logger.info("Phase 3 interrupted")
                 return
 
@@ -392,7 +444,7 @@ class TorrentSyncService:
             completed = await self.bittorrent.wait_for_torrent_complete(
                 torrent_hash,
                 symlink_paths=symlink_paths,
-                interrupt_event=self._interrupt_event,
+                interrupt_event=interrupt_event,
                 on_placeholder_updated=lambda: self.jellyfin.refresh_item(request.jellyfin_item_id),
             )
 

@@ -413,8 +413,8 @@ class TestProcessPlayedItem:
                         "/media/series/x [imdbid-tt7000002]/Season 1/E02.mkv",
         )
 
-        # Simulate a current request for the same IMDb ID
-        svc._current_request = MediaDownloadRequest(
+        # Simulate an active request for the same show.
+        current_request = MediaDownloadRequest(
             imdb_id="tt7000002",
             played_path="/old.mkv",
             jellyfin_item_id="old",
@@ -422,8 +422,11 @@ class TestProcessPlayedItem:
             local_info=LocalFileInformation(),
             episode_file_index=0,
         )
+        interrupt_event = asyncio.Event()
+        svc._show_current_requests["tt7000002"] = current_request
+        svc._show_interrupt_events["tt7000002"] = interrupt_event
 
-        assert not svc._interrupt_event.is_set()
+        assert not interrupt_event.is_set()
         item = {
             "NowPlayingItem": {
                 "Path": "/media/series/x [imdbid-tt7000002]/Season 1/E02.mkv",
@@ -431,9 +434,12 @@ class TestProcessPlayedItem:
             },
         }
         asyncio.run(svc._process_played_item(item))
-        assert svc._interrupt_event.is_set()
+        assert interrupt_event.is_set()
+        assert svc._media_download_queue.empty()
+        pending = svc._pending_show_requests["tt7000002"]
+        assert pending.episode_file_index == 1
 
-    def test_show_new_episode_for_different_show_interrupts(self, fake_config, repos):
+    def test_show_new_episode_for_different_show_runs_in_parallel(self, fake_config, repos):
         svc = _make_service(fake_config)
         current_t = _save_show_torrent(repos, imdb="tt8000001", torrent_id=8001)
         other_t = _save_show_torrent(repos, imdb="tt8000002", torrent_id=8002)
@@ -446,7 +452,8 @@ class TestProcessPlayedItem:
             symlink_path="/media/series/o [imdbid-tt8000002]/Season 1/E01.mkv",
         )
 
-        svc._current_request = MediaDownloadRequest(
+        interrupt_event = asyncio.Event()
+        svc._show_current_requests["tt8000001"] = MediaDownloadRequest(
             imdb_id="tt8000001",
             played_path="/cur.mkv",
             jellyfin_item_id="cur",
@@ -454,6 +461,7 @@ class TestProcessPlayedItem:
             local_info=LocalFileInformation(),
             episode_file_index=0,
         )
+        svc._show_interrupt_events["tt8000001"] = interrupt_event
 
         item = {
             "NowPlayingItem": {
@@ -462,7 +470,8 @@ class TestProcessPlayedItem:
             },
         }
         asyncio.run(svc._process_played_item(item))
-        assert svc._interrupt_event.is_set()
+        assert not interrupt_event.is_set()
+        assert svc._media_download_queue.qsize() == 1
 
     def test_ignores_when_local_info_missing(self, fake_config, repos):
         svc = _make_service(fake_config)
@@ -838,10 +847,11 @@ class TestPhaseShow:
         repos.show_season.save(ShowSeason(torrent_id=other.id, season=2, season_to=2, show_id=300))
         _save_local_info(repos, other, original_file_path="S2.mkv", symlink_path="/x/S2.mkv")
 
-        svc._interrupt_event.set()
+        interrupt_event = asyncio.Event()
+        interrupt_event.set()
 
         svc.bittorrent.add_torrent = AsyncMock()
-        asyncio.run(svc._phase_show(request))
+        asyncio.run(svc._phase_show(request, interrupt_event))
         svc.bittorrent.add_torrent.assert_not_called()
 
     def test_skips_seasons_without_torrent_file(self, fake_config, repos):
@@ -973,7 +983,7 @@ class TestOrchestratorDispatch:
         svc._handle_show_download.assert_awaited_once()
         svc._handle_movie_download.assert_not_called()
 
-    def test_orchestrator_clears_current_request_after_exception(self, fake_config, repos):
+    def test_orchestrator_clears_inflight_key_after_exception(self, fake_config, repos):
         svc = _make_service(fake_config)
         torrent = _save_movie_torrent(repos, imdb="tt9300001", torrent_id=9301)
         info = _save_local_info(repos, torrent)
@@ -983,6 +993,7 @@ class TestOrchestratorDispatch:
         )
 
         svc._handle_movie_download = AsyncMock(side_effect=RuntimeError("boom"))
+        svc._inflight_keys.add(("x", 0))
 
         async def _drive():
             await svc._media_download_queue.put(request)
@@ -997,6 +1008,8 @@ class TestOrchestratorDispatch:
                 await task
             except asyncio.CancelledError:
                 pass
+            for active_task in list(svc._active_download_tasks):
+                await active_task
 
         asyncio.run(_drive())
-        assert svc._current_request is None
+        assert ("x", 0) not in svc._inflight_keys
