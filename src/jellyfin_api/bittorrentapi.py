@@ -302,6 +302,7 @@ class BittorrentAPI:
 
         for symlink_path in symlink_paths:
             symlink = Path(symlink_path)
+            self.logger.debug("Processing symlink: %s", symlink_path)
             if symlink.is_symlink():
                 # Never replace a symlink that already points to a real downloaded file.
                 current_target = str(symlink.readlink())
