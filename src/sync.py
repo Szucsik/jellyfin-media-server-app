@@ -264,6 +264,7 @@ class TorrentSyncService:
             [qbt_file_index],
             symlink_paths=[episode_symlink],
             interrupt_event=self._interrupt_event,
+            on_placeholder_updated=lambda: self.jellyfin.refresh_item(request.jellyfin_item_id),
         )
 
         if completed:
@@ -324,6 +325,7 @@ class TorrentSyncService:
             season_qbt_indices,
             symlink_paths=season_symlinks,
             interrupt_event=self._interrupt_event,
+            on_placeholder_updated=lambda: self.jellyfin.refresh_item(request.jellyfin_item_id),
         )
 
         if completed:
@@ -390,6 +392,7 @@ class TorrentSyncService:
                 torrent_hash,
                 symlink_paths=symlink_paths,
                 interrupt_event=self._interrupt_event,
+                on_placeholder_updated=lambda: self.jellyfin.refresh_item(request.jellyfin_item_id),
             )
 
             if completed:

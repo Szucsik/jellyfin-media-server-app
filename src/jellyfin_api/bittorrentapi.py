@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import qbittorrentapi
 import torrentool.api as torrentool
@@ -146,6 +146,7 @@ class BittorrentAPI:
         file_indices: list[int],
         symlink_paths: Optional[list[str]] = None,
         interrupt_event: Optional[asyncio.Event] = None,
+        on_placeholder_updated: Optional[Callable[[], None]] = None,
     ) -> bool:
         """Wait until specific files are fully downloaded.
 
@@ -199,7 +200,9 @@ class BittorrentAPI:
                 )
 
                 if symlink_paths:
-                    self._update_eta_placeholders(eta_s, symlink_paths)
+                    changed = self._update_eta_placeholders(eta_s, symlink_paths)
+                    if changed and on_placeholder_updated:
+                        await loop.run_in_executor(None, on_placeholder_updated)
                     self.logger.info("ETA placeholders updated based on torrent-level ETA")
                 else:
                     self.logger.info("ETA placeholders not updated because no symlink paths provided")
@@ -211,6 +214,7 @@ class BittorrentAPI:
         torrent_hash: str,
         symlink_paths: Optional[list[str]] = None,
         interrupt_event: Optional[asyncio.Event] = None,
+        on_placeholder_updated: Optional[Callable[[], None]] = None,
     ) -> bool:
         """Wait until the entire torrent (all enabled files) is complete.
 
@@ -244,7 +248,9 @@ class BittorrentAPI:
             )
 
             if symlink_paths:
-                self._update_eta_placeholders(eta_s, symlink_paths)
+                changed = self._update_eta_placeholders(eta_s, symlink_paths)
+                if changed and on_placeholder_updated:
+                    await loop.run_in_executor(None, on_placeholder_updated)
 
             # qBittorrent can briefly report a done-like torrent state after a
             # previous selective download. Verify enabled files are complete
@@ -287,16 +293,17 @@ class BittorrentAPI:
 
     # ── Placeholder helpers ───────────────────────────────────────────────────
 
-    def _update_eta_placeholders(self, seconds: int, symlink_paths: list[str]) -> None:
+    def _update_eta_placeholders(self, seconds: int, symlink_paths: list[str]) -> bool:
         """Update symlinks with ETA-based placeholder files."""
         self.logger.debug("Updating ETA placeholders with %d seconds remaining", seconds)
         
         if seconds < 0 or seconds == 8640000:
             self.logger.info("ETA is unknown, skipping placeholder update")
-            return
+            return False
 
         minutes = seconds / 60
         placeholders_dir = self.config.placeholders_directory
+        changed = False
 
         self.logger.debug("Updating placeholder for symlink: %s", symlink_paths)
 
@@ -322,3 +329,6 @@ class BittorrentAPI:
                 symlink.symlink_to(self.config.placeholder_less_then_five_min_left_path)
             else:
                 symlink.symlink_to(self.config.placeholder_less_then_a_few_min_left_path)
+            changed = True
+
+        return changed
