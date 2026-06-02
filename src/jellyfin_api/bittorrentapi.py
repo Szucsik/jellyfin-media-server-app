@@ -289,7 +289,8 @@ class BittorrentAPI:
 
     def _update_eta_placeholders(self, seconds: int, symlink_paths: list[str]) -> None:
         """Update symlinks with ETA-based placeholder files."""
-
+        self.logger.debug("Updating ETA placeholders with %d seconds remaining", seconds)
+        
         if seconds < 0 or seconds == 8640000:
             self.logger.info("ETA is unknown, skipping placeholder update")
             return
@@ -297,8 +298,9 @@ class BittorrentAPI:
         minutes = seconds / 60
         placeholders_dir = self.config.placeholders_directory
 
+        self.logger.debug("Updating placeholder for symlink: %s", symlink_paths)
+
         for symlink_path in symlink_paths:
-            self.logger.debug("Updating placeholder for symlink: %s", symlink_path)
             symlink = Path(symlink_path)
             if symlink.is_symlink():
                 # Never replace a symlink that already points to a real downloaded file.
