@@ -405,3 +405,19 @@ class TestTorrentTask:
              patch.object(api, "wait_for_torrent_complete", side_effect=_fake_wait):
             result = asyncio.run(api.torrent_task("/tmp/x.torrent", []))
         assert result == ""
+
+    def test_forwards_placeholder_callback(self, fake_config):
+        api = _make_api(fake_config)
+
+        async def _fake_add(*a, **kw): return "hashy"
+        wait_mock = MagicMock()
+
+        async def _fake_wait(*a, **kw):
+            wait_mock(*a, **kw)
+            return False
+
+        with patch.object(api, "add_torrent", side_effect=_fake_add), \
+             patch.object(api, "wait_for_torrent_complete", side_effect=_fake_wait):
+            asyncio.run(api.torrent_task("/tmp/x.torrent", [], on_placeholder_updated=lambda: None))
+
+        assert callable(wait_mock.call_args.kwargs["on_placeholder_updated"])

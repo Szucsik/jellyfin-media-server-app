@@ -281,10 +281,19 @@ class BittorrentAPI:
 
     # ── Legacy method (kept for movie downloads) ──────────────────────────────
 
-    async def torrent_task(self, torrent_path: str, symlink_paths: list[str]) -> str:
+    async def torrent_task(
+        self,
+        torrent_path: str,
+        symlink_paths: list[str],
+        on_placeholder_updated: Optional[Callable[[], None]] = None,
+    ) -> str:
         """Add a torrent, wait for it to complete, and return the save_path."""
         torrent_hash = await self.add_torrent(torrent_path)
-        completed = await self.wait_for_torrent_complete(torrent_hash, symlink_paths)
+        completed = await self.wait_for_torrent_complete(
+            torrent_hash,
+            symlink_paths,
+            on_placeholder_updated=on_placeholder_updated,
+        )
         if completed:
             save_path = await self.get_save_path(torrent_hash)
             self.logger.info("Download complete! Saved: %s", save_path)

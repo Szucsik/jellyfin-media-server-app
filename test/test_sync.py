@@ -512,6 +512,8 @@ class TestMovieDownload:
         asyncio.run(svc._handle_movie_download(request))
 
         svc.bittorrent.torrent_task.assert_awaited_once()
+        call = svc.bittorrent.torrent_task.await_args
+        assert callable(call.kwargs["on_placeholder_updated"])
         svc.jellyfin.refresh_item.assert_called_once_with("jf-mov")
         assert symlink.resolve() == (target / rel).resolve()
 

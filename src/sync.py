@@ -202,6 +202,7 @@ class TorrentSyncService:
         save_path = await self.bittorrent.torrent_task(
             request.local_info.torrent_file_local_path,
             request.local_info.symlink_path.split(";"),
+            on_placeholder_updated=lambda: self.jellyfin.refresh_item(request.jellyfin_item_id),
         )
 
         if save_path:
