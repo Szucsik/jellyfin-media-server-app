@@ -10,8 +10,8 @@ from config import Configuration
 
 # Speed limits in bytes/sec
 SPEED_UNLIMITED = 0
+SPEED_160_MBPS = 20_000_000  # 160 Mbit/s
 SPEED_20_MBPS = 2_500_000  # 20 Mbit/s
-SPEED_5_MBPS = 625_000  # 5 Mbit/s
 
 
 class BittorrentAPI:

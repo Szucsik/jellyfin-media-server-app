@@ -664,11 +664,11 @@ class TestPhaseSeason:
         result = asyncio.run(svc._phase_season(request))
         assert result is True
 
-        from jellyfin_api.bittorrentapi import SPEED_20_MBPS
+        from jellyfin_api.bittorrentapi import SPEED_160_MBPS
         prio_calls = svc.bittorrent.set_file_priorities.await_args_list
         assert prio_calls[0].args == ("h", [0, 1, 2], 0)
         assert prio_calls[1].args == ("h", [0, 1, 2], 1)
-        svc.bittorrent.set_download_limit.assert_awaited_once_with("h", SPEED_20_MBPS)
+        svc.bittorrent.set_download_limit.assert_awaited_once_with("h", SPEED_160_MBPS)
         svc.jellyfin.refresh_item.assert_called_once()
 
     def test_interrupted_returns_false_and_no_refresh(self, fake_config, repos):
@@ -775,11 +775,11 @@ class TestPhaseShow:
 
         asyncio.run(svc._phase_show(request))
 
-        from jellyfin_api.bittorrentapi import SPEED_5_MBPS
-        # Both other seasons received a 5 Mbps throttle
+        from jellyfin_api.bittorrentapi import SPEED_20_MBPS
+        # Both other seasons received a 20 Mbps throttle
         assert svc.bittorrent.set_download_limit.await_count == 2
         for call in svc.bittorrent.set_download_limit.await_args_list:
-            assert call.args[1] == SPEED_5_MBPS
+            assert call.args[1] == SPEED_20_MBPS
         assert svc.bittorrent.add_torrent.await_count == 2
 
     def test_excludes_currently_playing_season_from_phase3(self, fake_config, repos):

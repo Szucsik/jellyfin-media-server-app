@@ -10,7 +10,6 @@ import pytest
 
 from jellyfin_api.bittorrentapi import (
     BittorrentAPI,
-    SPEED_5_MBPS,
     SPEED_20_MBPS,
     SPEED_UNLIMITED,
 )

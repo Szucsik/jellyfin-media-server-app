@@ -7,7 +7,7 @@ from typing import Optional
 
 from config import Configuration
 from jellyfin_api.jellyfin_api import JellyfinApi
-from jellyfin_api.bittorrentapi import BittorrentAPI, SPEED_UNLIMITED, SPEED_20_MBPS, SPEED_5_MBPS
+from jellyfin_api.bittorrentapi import BittorrentAPI, SPEED_UNLIMITED, SPEED_160_MBPS, SPEED_20_MBPS
 from models.torrent import Torrent
 from models.local_file_information import LocalFileInformation
 from models.show_season import ShowSeason
@@ -49,8 +49,8 @@ class TorrentSyncService:
 
     Download priority:
       1. Selected episode → full speed (unlimited)
-      2. Rest of season → 20 Mbps
-      3. Rest of show (other seasons) → 5 Mbps
+            2. Rest of season → 160 Mbps
+            3. Rest of show (other seasons) → 20 Mbps
 
     If a new episode is selected during season/show download, it interrupts and
     prioritizes the new episode at full speed.
@@ -258,12 +258,12 @@ class TorrentSyncService:
         if not completed:
             return  # Interrupted, new request will take over
 
-        # Phase 2: Download the rest of the season at 20 Mbps
+        # Phase 2: Download the rest of the season at 160 Mbps
         completed = await self._phase_season(request, interrupt_event)
         if not completed:
             return  # Interrupted
 
-        # Phase 3: Download other seasons of the show at 5 Mbps
+        # Phase 3: Download other seasons of the show at 20 Mbps
         await self._phase_show(request, interrupt_event)
 
     async def _phase_episode(
@@ -327,8 +327,8 @@ class TorrentSyncService:
         request: MediaDownloadRequest,
         interrupt_event: Optional[asyncio.Event] = None,
     ) -> bool:
-        """Phase 2: Download the rest of the season at 20 Mbps."""
-        self.logger.info("Phase 2: Downloading rest of season at 20 Mbps")
+        """Phase 2: Download the rest of the season at 160 Mbps."""
+        self.logger.info("Phase 2: Downloading rest of season at 160 Mbps")
 
         interrupt_event = interrupt_event or asyncio.Event()
 
@@ -361,8 +361,8 @@ class TorrentSyncService:
         await self.bittorrent.set_file_priorities(torrent_hash, all_indices, 0)
         await self.bittorrent.set_file_priorities(torrent_hash, season_qbt_indices, 1)
 
-        # Throttle to 20 Mbps
-        await self.bittorrent.set_download_limit(torrent_hash, SPEED_20_MBPS)
+        # Throttle to 160 Mbps
+        await self.bittorrent.set_download_limit(torrent_hash, SPEED_160_MBPS)
 
         # Wait for target season files to complete
         symlink_paths = request.local_info.symlink_path.split(";")
@@ -390,7 +390,7 @@ class TorrentSyncService:
         request: MediaDownloadRequest,
         interrupt_event: Optional[asyncio.Event] = None,
     ) -> None:
-        """Phase 3: Download other seasons of the show at 5 Mbps."""
+        """Phase 3: Download other seasons of the show at 20 Mbps."""
         interrupt_event = interrupt_event or asyncio.Event()
 
         if not request.show_season:
@@ -411,7 +411,7 @@ class TorrentSyncService:
             self.logger.info("No other seasons to download for show %s", show_id)
             return
 
-        self.logger.info("Phase 3: Downloading %d other season(s) at 5 Mbps", len(other_seasons))
+        self.logger.info("Phase 3: Downloading %d other season(s) at 20 Mbps", len(other_seasons))
 
         for season in other_seasons:
             if interrupt_event.is_set():
@@ -434,11 +434,11 @@ class TorrentSyncService:
 
             torrent_hash = await self.bittorrent.add_torrent(season_local_info.torrent_file_local_path)
 
-            # Enable all files, throttle to 5 Mbps
+            # Enable all files, throttle to 20 Mbps
             torrent_files = await self.bittorrent.get_torrent_files(torrent_hash)
             all_indices = [f["index"] for f in torrent_files]
             await self.bittorrent.set_file_priorities(torrent_hash, all_indices, 1)
-            await self.bittorrent.set_download_limit(torrent_hash, SPEED_5_MBPS)
+            await self.bittorrent.set_download_limit(torrent_hash, SPEED_20_MBPS)
 
             symlink_paths = season_local_info.symlink_path.split(";")
             completed = await self.bittorrent.wait_for_torrent_complete(
