@@ -287,25 +287,49 @@ class TorrentSyncService:
         torrent_hash = await self.bittorrent.add_torrent(request.local_info.torrent_file_local_path)
         torrent_files = await self.bittorrent.get_torrent_files(torrent_hash)
 
-        # Enable all files in this season torrent
+        season_positions = self._get_target_season_positions(
+            request.local_info,
+            request.episode_file_index,
+        )
+
+        original_files = request.local_info.original_file_path.split(";")
+        season_qbt_indices: list[int] = []
+        for pos in season_positions:
+            if pos >= len(original_files):
+                continue
+            original_file = original_files[pos].strip()
+            qbt_index = self._find_qbt_file_index(torrent_files, original_file)
+            if qbt_index is not None:
+                season_qbt_indices.append(qbt_index)
+
+        season_qbt_indices = list(dict.fromkeys(season_qbt_indices))
+
+        if not season_qbt_indices:
+            self.logger.error("Could not resolve season files in torrent for phase 2")
+            return False
+
+        # Download only target season files in this torrent.
         all_indices = [f["index"] for f in torrent_files]
-        await self.bittorrent.set_file_priorities(torrent_hash, all_indices, 1)
+        await self.bittorrent.set_file_priorities(torrent_hash, all_indices, 0)
+        await self.bittorrent.set_file_priorities(torrent_hash, season_qbt_indices, 1)
 
         # Throttle to 20 Mbps
         await self.bittorrent.set_download_limit(torrent_hash, SPEED_20_MBPS)
 
-        # Wait for all season files to complete
+        # Wait for target season files to complete
         symlink_paths = request.local_info.symlink_path.split(";")
-        completed = await self.bittorrent.wait_for_torrent_complete(
+        season_symlinks = [symlink_paths[pos].strip() for pos in season_positions if pos < len(symlink_paths)]
+        completed = await self.bittorrent.wait_for_files_complete(
             torrent_hash,
-            symlink_paths=symlink_paths,
+            season_qbt_indices,
+            symlink_paths=season_symlinks,
             interrupt_event=self._interrupt_event,
         )
 
         if completed:
             save_path = await self.bittorrent.get_save_path(torrent_hash)
             if save_path:
-                self._update_symlinks(request.local_info, save_path)
+                self._update_selected_symlinks(request.local_info, save_path, season_positions)
             self.logger.info("Season download complete")
             self.jellyfin.refresh_item(request.jellyfin_item_id)
             return True
@@ -431,6 +455,58 @@ class TorrentSyncService:
 
         for symlink_str, original_file in zip(symlink_paths, original_files):
             self._update_single_symlink(save_path, original_file.strip(), symlink_str.strip())
+
+    def _update_selected_symlinks(
+        self,
+        local_info: LocalFileInformation,
+        save_path: str,
+        selected_positions: list[int],
+    ) -> None:
+        """Update only selected symlinks by semicolon-list positions."""
+        if not local_info.symlink_path or not local_info.original_file_path:
+            self.logger.warning("No symlink/original_file_path data for torrent_id %s", local_info.torrent_id)
+            return
+
+        symlink_paths = local_info.symlink_path.split(";")
+        original_files = local_info.original_file_path.split(";")
+
+        if len(symlink_paths) != len(original_files):
+            self.logger.error(
+                "Mismatch: %d symlinks vs %d original files for torrent_id %s",
+                len(symlink_paths), len(original_files), local_info.torrent_id,
+            )
+            return
+
+        for pos in selected_positions:
+            if pos < 0 or pos >= len(symlink_paths):
+                continue
+            self._update_single_symlink(
+                save_path,
+                original_files[pos].strip(),
+                symlink_paths[pos].strip(),
+            )
+
+    def _get_target_season_positions(
+        self,
+        local_info: LocalFileInformation,
+        episode_file_index: int,
+    ) -> list[int]:
+        """Return semicolon-list positions that belong to the played season."""
+        symlink_paths = [p.strip() for p in local_info.symlink_path.split(";")]
+
+        if not symlink_paths:
+            return [episode_file_index]
+
+        if episode_file_index < 0 or episode_file_index >= len(symlink_paths):
+            return [0]
+
+        target_parent = Path(symlink_paths[episode_file_index]).parent
+        positions = [
+            i for i, symlink_path in enumerate(symlink_paths)
+            if Path(symlink_path).parent == target_parent
+        ]
+
+        return positions if positions else [episode_file_index]
 
     # ── Entry point ───────────────────────────────────────────────────────────
 

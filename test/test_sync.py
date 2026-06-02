@@ -642,11 +642,11 @@ class TestPhaseSeason:
 
         svc.bittorrent.add_torrent = AsyncMock(return_value="h")
         svc.bittorrent.get_torrent_files = AsyncMock(return_value=[
-            {"name": f"E0{i}.mkv", "index": i, "size": 1, "progress": 0, "priority": 1} for i in range(3)
+            {"name": f"E0{i+1}.mkv", "index": i, "size": 1, "progress": 0, "priority": 1} for i in range(3)
         ])
         svc.bittorrent.set_file_priorities = AsyncMock()
         svc.bittorrent.set_download_limit = AsyncMock()
-        svc.bittorrent.wait_for_torrent_complete = AsyncMock(return_value=True)
+        svc.bittorrent.wait_for_files_complete = AsyncMock(return_value=True)
         svc.bittorrent.get_save_path = AsyncMock(return_value="")
         svc.jellyfin.refresh_item = MagicMock()
 
@@ -654,7 +654,9 @@ class TestPhaseSeason:
         assert result is True
 
         from jellyfin_api.bittorrentapi import SPEED_20_MBPS
-        svc.bittorrent.set_file_priorities.assert_awaited_once_with("h", [0, 1, 2], 1)
+        prio_calls = svc.bittorrent.set_file_priorities.await_args_list
+        assert prio_calls[0].args == ("h", [0, 1, 2], 0)
+        assert prio_calls[1].args == ("h", [0, 1, 2], 1)
         svc.bittorrent.set_download_limit.assert_awaited_once_with("h", SPEED_20_MBPS)
         svc.jellyfin.refresh_item.assert_called_once()
 
@@ -669,12 +671,47 @@ class TestPhaseSeason:
         ])
         svc.bittorrent.set_file_priorities = AsyncMock()
         svc.bittorrent.set_download_limit = AsyncMock()
-        svc.bittorrent.wait_for_torrent_complete = AsyncMock(return_value=False)
+        svc.bittorrent.wait_for_files_complete = AsyncMock(return_value=False)
         svc.jellyfin.refresh_item = MagicMock()
 
         result = asyncio.run(svc._phase_season(request))
         assert result is False
         svc.jellyfin.refresh_item.assert_not_called()
+
+    def test_updates_only_target_season_symlinks(self, fake_config, repos):
+        svc = _make_service(fake_config)
+        request = _make_show_request(fake_config, repos, n_episodes=4, played_index=1)
+        request.local_info.symlink_path = ";".join([
+            "/media/series/X/Season 1/E01.mkv",
+            "/media/series/X/Season 1/E02.mkv",
+            "/media/series/X/Season 2/E01.mkv",
+            "/media/series/X/Season 2/E02.mkv",
+        ])
+        request.local_info.original_file_path = ";".join([
+            "X/Season 1/E01.mkv",
+            "X/Season 1/E02.mkv",
+            "X/Season 2/E01.mkv",
+            "X/Season 2/E02.mkv",
+        ])
+
+        svc.bittorrent.add_torrent = AsyncMock(return_value="h")
+        svc.bittorrent.get_torrent_files = AsyncMock(return_value=[
+            {"name": "X/Season 1/E01.mkv", "index": 0, "size": 1, "progress": 0, "priority": 1},
+            {"name": "X/Season 1/E02.mkv", "index": 1, "size": 1, "progress": 0, "priority": 1},
+            {"name": "X/Season 2/E01.mkv", "index": 2, "size": 1, "progress": 0, "priority": 1},
+            {"name": "X/Season 2/E02.mkv", "index": 3, "size": 1, "progress": 0, "priority": 1},
+        ])
+        svc.bittorrent.set_file_priorities = AsyncMock()
+        svc.bittorrent.set_download_limit = AsyncMock()
+        svc.bittorrent.wait_for_files_complete = AsyncMock(return_value=True)
+        svc.bittorrent.get_save_path = AsyncMock(return_value="/downloads")
+        svc._update_selected_symlinks = MagicMock()
+        svc.jellyfin.refresh_item = MagicMock()
+
+        result = asyncio.run(svc._phase_season(request))
+
+        assert result is True
+        svc._update_selected_symlinks.assert_called_once_with(request.local_info, "/downloads", [0, 1])
 
 
 # ═════════════════════════════════════════════════════════════════════════════
