@@ -433,7 +433,7 @@ class TestProcessPlayedItem:
         asyncio.run(svc._process_played_item(item))
         assert svc._interrupt_event.is_set()
 
-    def test_show_new_episode_for_different_show_does_not_interrupt(self, fake_config, repos):
+    def test_show_new_episode_for_different_show_interrupts(self, fake_config, repos):
         svc = _make_service(fake_config)
         current_t = _save_show_torrent(repos, imdb="tt8000001", torrent_id=8001)
         other_t = _save_show_torrent(repos, imdb="tt8000002", torrent_id=8002)
@@ -462,8 +462,7 @@ class TestProcessPlayedItem:
             },
         }
         asyncio.run(svc._process_played_item(item))
-        # Different IMDb → no interrupt
-        assert not svc._interrupt_event.is_set()
+        assert svc._interrupt_event.is_set()
 
     def test_ignores_when_local_info_missing(self, fake_config, repos):
         svc = _make_service(fake_config)

@@ -127,13 +127,13 @@ class TorrentSyncService:
         if key in self._inflight_keys:
             return
 
-        # If we're currently downloading the SAME show but a different episode,
-        # interrupt the running phase so the new episode takes over.
+        # If a show download is currently running and a newer playback request
+        # arrives, interrupt the running phase so the new request can take over.
         current = self._current_request
-        if torrent.is_show and current is not None:
-            current_imdb = extract_imdb_id_from_url(current.torrent.imdb_link)
-            if current_imdb == imdb_id and (current.jellyfin_item_id, current.episode_file_index) != key:
-                self.logger.info("New episode requested — interrupting current download")
+        if current is not None and current.torrent.is_show:
+            current_key = (current.jellyfin_item_id, current.episode_file_index)
+            if current_key != key:
+                self.logger.info("New playback requested — interrupting current show download")
                 self._interrupt_event.set()
 
         show_season: Optional[ShowSeason] = await loop.run_in_executor(
