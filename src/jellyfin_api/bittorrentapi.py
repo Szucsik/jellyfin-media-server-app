@@ -200,6 +200,9 @@ class BittorrentAPI:
 
                 if symlink_paths:
                     self._update_eta_placeholders(eta_s, symlink_paths)
+                    self.logger.info("ETA placeholders updated based on torrent-level ETA")
+                else:
+                    self.logger.info("ETA placeholders not updated because no symlink paths provided")
 
             await asyncio.sleep(self.POLL_INTERVAL)
 
@@ -286,18 +289,22 @@ class BittorrentAPI:
 
     def _update_eta_placeholders(self, seconds: int, symlink_paths: list[str]) -> None:
         """Update symlinks with ETA-based placeholder files."""
+
         if seconds < 0 or seconds == 8640000:
+            self.logger.info("ETA is unknown, skipping placeholder update")
             return
 
         minutes = seconds / 60
         placeholders_dir = self.config.placeholders_directory
 
         for symlink_path in symlink_paths:
+            self.logger.debug("Updating placeholder for symlink: %s", symlink_path)
             symlink = Path(symlink_path)
             if symlink.is_symlink():
                 # Never replace a symlink that already points to a real downloaded file.
                 current_target = str(symlink.readlink())
                 if placeholders_dir not in current_target:
+                    self.logger.debug("Symlink %s points to a real file (%s), skipping placeholder update", symlink_path, current_target)
                     continue
                 symlink.unlink()
             if minutes >= 60:
