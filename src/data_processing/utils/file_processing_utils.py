@@ -233,11 +233,31 @@ class FileProcessingUtils:
         1. Standard patterns: SxxExx, SxxExx-Exx, NxNN  (parse_episode)
         2. Sequence fallback: compare numeric tokens across files in the same
            show group to identify the varying SEEP token  (parse_episode_sequence)
+
+        Flat-file grouping
+        ------------------
+        When files have no folder component and ``parse_show_info_from_filename``
+        cannot extract a meaningful show name (returns "Unknown"/empty or a name
+        that starts with a digit — meaning the episode code was the leading token),
+        all such files are collected into a single group and processed jointly by
+        the sequence parser.  This covers torrents that use patterns like:
+
+            101_episode.mkv   →  S01E01
+            102_asdasd.mkv    →  S01E02
+            111.sode.mkv      →  S01E11
+
+        where the increasing 3–4 digit number encodes season and episode.
         """
         raw: dict = defaultdict(lambda: defaultdict(list))
 
         # Files that didn't match any standard pattern, keyed by (show, year)
         unresolved: dict[tuple[str, str | None], list[tuple[str, str]]] = defaultdict(list)
+
+        # Flat files (no folder) whose show name couldn't be reliably determined.
+        # They are collected together so the sequence parser can use all of them
+        # at once — this is critical when each file would otherwise be its own
+        # group and the varying numeric token only becomes visible across files.
+        flat_unresolved: list[tuple[str, str]] = []  # (original_path, filename)
 
         for line in lines:
             line = line.strip()
@@ -258,6 +278,12 @@ class FileProcessingUtils:
                 show_name, year = self.parse_show_info(path_parts[0])
             else:
                 show_name, year = self.parse_show_info_from_filename(filename)
+                # If the show name is garbage (episode code was the first
+                # meaningful token so nothing useful was left for the name),
+                # defer to the shared flat-file group.
+                if show_name in ("Unknown", "") or (show_name and show_name[0].isdigit()):
+                    flat_unresolved.append((line, filename))
+                    continue
 
             season_num, ep1, ep2 = self.parse_episode(filename)
 
@@ -291,6 +317,24 @@ class FileProcessingUtils:
                     original_path=line,
                 )
                 raw[(show_name, year)][season_num].append(episode)
+
+        # ── sequence fallback for flat files with undetermined show name ──────
+        if flat_unresolved:
+            flat_filenames = [filename for _, filename in flat_unresolved]
+            seq_results = self.parse_episode_sequence(flat_filenames)
+
+            for (line, filename), (season_num, ep1, ep2) in zip(flat_unresolved, seq_results):
+                if season_num is None or ep1 is None:
+                    continue
+                ext = Path(filename).suffix.lower()
+                episode = Episode(
+                    season=season_num,
+                    episode=ep1,
+                    episode_end=ep2,
+                    filename=self.format_ep_filename("Unknown", season_num, ep1, ep2, ext),
+                    original_path=line,
+                )
+                raw[("Unknown", None)][season_num].append(episode)
 
         # ── assemble Show objects ─────────────────────────────────────────────
         shows = []

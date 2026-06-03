@@ -194,6 +194,40 @@ class TestParse:
         eps = shows[0].seasons[0].episodes
         assert [e.episode for e in eps] == [1, 2, 3]
 
+    def test_messy_flat_seep_files_grouped_as_one_show(self, utils):
+        """Flat files whose names start with the episode code must all end up
+        in a single Show rather than one Show per file."""
+        lines = [
+            "101_episode.mkv",
+            "102_asdasd.mkv",
+            "111.sode.mkv",
+        ]
+        shows = utils.parse(lines)
+        assert len(shows) == 1, "All files must belong to one Show"
+        eps = shows[0].seasons[0].episodes
+        assert [(e.season, e.episode) for e in eps] == [(1, 1), (1, 2), (1, 11)]
+
+    def test_messy_flat_seep_bare_numbers(self, utils):
+        """Bare 3-digit SEEP filenames with no descriptive tokens."""
+        lines = ["101.mkv", "102.mkv", "111.mkv"]
+        shows = utils.parse(lines)
+        assert len(shows) == 1
+        eps = shows[0].seasons[0].episodes
+        assert [(e.season, e.episode) for e in eps] == [(1, 1), (1, 2), (1, 11)]
+
+    def test_messy_flat_seep_with_folder_context(self, utils):
+        """When files ARE inside a folder the show name comes from the folder
+        and sequence detection still works for the same messy patterns."""
+        lines = [
+            "MyShow/101_episode.mkv",
+            "MyShow/102_asdasd.mkv",
+            "MyShow/111.sode.mkv",
+        ]
+        shows = utils.parse(lines)
+        assert len(shows) == 1
+        eps = shows[0].seasons[0].episodes
+        assert [(e.season, e.episode) for e in eps] == [(1, 1), (1, 2), (1, 11)]
+
 
 class TestTmdbLookup:
     def test_movie_result(self, utils):
