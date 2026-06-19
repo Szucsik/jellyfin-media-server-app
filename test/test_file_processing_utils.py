@@ -229,6 +229,89 @@ class TestParse:
         assert [(e.season, e.episode) for e in eps] == [(1, 1), (1, 2), (1, 11)]
 
 
+class TestDirectoryStructureDetection:
+    """Season numbers are taken from consecutive season directories and episodes
+    from the numeric token that increases sequentially within each directory."""
+
+    def test_consecutive_season_dirs(self, utils):
+        lines = [
+            "Sherlock.S01-S04.COMPLETE.720p.BluRay-pcroland/"
+            "Sherlock.S01.720p.BluRay.DD5.1.x264.HUN.ENG-pcroland/"
+            "Sherlock.S01E01.720p.BluRay.DD5.1.x264.HUN.ENG-pcroland.mkv",
+            "Sherlock.S01-S04.COMPLETE.720p.BluRay-pcroland/"
+            "Sherlock.S01.720p.BluRay.DD5.1.x264.HUN.ENG-pcroland/"
+            "Sherlock.S01E02.720p.BluRay.DD5.1.x264.HUN.ENG-pcroland.mkv",
+            "Sherlock.S01-S04.COMPLETE.720p.BluRay-pcroland/"
+            "Sherlock.S01.720p.BluRay.DD5.1.x264.HUN.ENG-pcroland/"
+            "Sherlock.S01E03.720p.BluRay.DD5.1.x264.HUN.ENG-pcroland.mkv",
+            "Sherlock.S01-S04.COMPLETE.720p.BluRay-pcroland/"
+            "Sherlock.S02.720p.BluRay.DD5.1.x264.HUN.ENG-pcroland/"
+            "Sherlock.S02E01.720p.BluRay.DD5.1.x264.HUN.ENG-pcroland.mkv",
+        ]
+        shows = utils.parse(lines)
+        assert len(shows) == 1
+        show = shows[0]
+        assert show.name == "Sherlock"
+        assert [s.number for s in show.seasons] == [1, 2]
+        assert [(e.season, e.episode) for e in show.seasons[0].episodes] == [(1, 1), (1, 2), (1, 3)]
+        assert [(e.season, e.episode) for e in show.seasons[1].episodes] == [(2, 1)]
+
+    def test_season_from_directory_overrides_misleading_filename_numbers(self, utils):
+        """Filenames carry unrelated release IDs; season comes from the directory
+        and the episode from the sequentially-increasing token."""
+        lines = [
+            "Show.S03.1080p.WEB-grp/Show.WEB.554213.1080p-grp.1.mkv",
+            "Show.S03.1080p.WEB-grp/Show.WEB.554213.1080p-grp.2.mkv",
+            "Show.S04.1080p.WEB-grp/Show.WEB.554213.1080p-grp.1.mkv",
+            "Show.S04.1080p.WEB-grp/Show.WEB.554213.1080p-grp.2.mkv",
+        ]
+        shows = utils.parse(lines)
+        assert len(shows) == 1
+        show = shows[0]
+        assert [s.number for s in show.seasons] == [3, 4]
+        assert [(e.season, e.episode) for e in show.seasons[0].episodes] == [(3, 1), (3, 2)]
+        assert [(e.season, e.episode) for e in show.seasons[1].episodes] == [(4, 1), (4, 2)]
+
+    def test_non_consecutive_seasons_fall_back(self, utils):
+        """Gap in the season sequence (1, 3) → directory detection is skipped and
+        the standard SxxExx filename parsing takes over."""
+        lines = [
+            "Show.S01/Show.S01E01.mkv",
+            "Show.S03/Show.S03E01.mkv",
+        ]
+        shows = utils.parse(lines)
+        assert len(shows) == 1
+        numbers = sorted(s.number for s in shows[0].seasons)
+        assert numbers == [1, 3]
+
+    def test_double_episode_preserved_via_fallback(self, utils):
+        """When the sequential token is ambiguous (double episodes), the per-file
+        standard parser still resolves SxxExx-Exx including the episode end."""
+        lines = [
+            "Show.S01.720p/Show.S01E01-E02.720p.mkv",
+            "Show.S02.720p/Show.S02E01-E02.720p.mkv",
+        ]
+        shows = utils.parse(lines)
+        assert [s.number for s in shows[0].seasons] == [1, 2]
+        first = shows[0].seasons[0].episodes[0]
+        assert (first.season, first.episode, first.episode_end) == (1, 1, 2)
+
+
+class TestExtractSeasonFromDir:
+    @pytest.mark.parametrize(
+        "directory,expected",
+        [
+            ("Show.S01.720p.BluRay", 1),
+            ("Show.S12.1080p", 12),
+            ("Season 3", 3),
+            ("Season_04", 4),
+            ("Show.1080p.WEB", None),
+        ],
+    )
+    def test_extraction(self, utils, directory, expected):
+        assert utils._extract_season_from_dir(directory) == expected
+
+
 class TestTmdbLookup:
     def test_movie_result(self, utils):
         with patch("data_processing.utils.file_processing_utils.requests.get") as mocked:
