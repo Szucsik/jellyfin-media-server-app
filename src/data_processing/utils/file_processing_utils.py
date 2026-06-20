@@ -37,6 +37,14 @@ class Show:
 VIDEO_EXTS = {".mkv", ".mp4", ".avi", ".m4v", ".mov"}
 EXCLUDED_SHOW_DIRS = {"sample", "samples", "extra", "extras"}
 
+# Upper bound for a realistic season number. Anything above this is treated as a
+# release ID / unrelated number rather than a season.
+MAX_SEASON_NUMBER = 40
+
+# Upper bound for a realistic episode number. Guards against release IDs that
+# happen to form a consecutive run being mistaken for episode numbers.
+MAX_EPISODE_NUMBER = 99
+
 # Matches quality/source tokens that appear before the show name in flat filenames
 # e.g. "sln-720p", "1080p", "WEBRip", "BluRay"
 QUALITY_RE = re.compile(
@@ -237,44 +245,69 @@ class FileProcessingUtils:
         """Extract a season number from a season-level directory name.
 
         Recognises ``S01`` / ``S1`` / ``Season 1`` / ``Season_01`` style tokens.
-        Returns ``None`` when no such token is present.
+        Returns ``None`` when no such token is present or when the extracted
+        number is not a realistic season (greater than ``MAX_SEASON_NUMBER``).
         """
         name = re.sub(r"[._]", " ", directory)
-        m = re.search(r"\b[Ss](?:eason)?\s*0*(\d{1,2})\b", name)
-        return int(m.group(1)) if m else None
+        m = re.search(r"\b[Ss](?:eason)?\s*0*(\d{1,3})\b", name)
+        if not m:
+            return None
+        season = int(m.group(1))
+        if season < 1 or season > MAX_SEASON_NUMBER:
+            return None
+        return season
 
-    def _detect_episode_token_position(
-        self, token_lists: list[list[re.Match]]
-    ) -> int | None:
-        """Find the numeric-token position that encodes episode numbers.
+    def _sequential_episode_values(
+        self, token_int_lists: list[list[int]]
+    ) -> list[int] | None:
+        """Pick the episode numbers out of every file's numeric values.
 
-        The episode token is the one whose values are distinct across every file
-        and, once sorted, form a gap-free consecutive run (1, 2, 3 …).  Constant
-        tokens (release IDs, quality, codecs) and non-sequential tokens are
-        ignored.  When several positions qualify, the one closest to episode 1
-        wins.
+        Every numeric value in each filename is considered.  The episode token is
+        the one position whose values across the files form a gap-free,
+        duplicate-free run that increases one-by-one (e.g. 1, 2, 3 … 20).  Both
+        left- and right-aligned positions are tried, so the episode number is
+        found regardless of how many unrelated leading numbers (release IDs,
+        quality, codecs) a filename carries.  Each file keeps its own value at
+        that position, so the same position is reused for the whole season.
+
+        Returns the per-file episode numbers, or ``None`` when no position forms
+        a clean one-by-one sequence.
         """
-        if not token_lists or any(len(tl) == 0 for tl in token_lists):
+        n = len(token_int_lists)
+        if n < 2:
+            return None
+        max_len = max((len(t) for t in token_int_lists), default=0)
+        if max_len == 0:
             return None
 
-        width = min(len(tl) for tl in token_lists)
-        best_pos: int | None = None
+        def is_one_by_one(values: list[int | None]) -> int | None:
+            """Return the run's starting value when the values increase one-by-one."""
+            if any(v is None for v in values):
+                return None
+            if len(set(values)) != n:
+                return None  # constant or repeated → release ID / quality / season
+            ordered = sorted(values)  # type: ignore[arg-type]
+            if ordered[0] < 1 or ordered[-1] > MAX_EPISODE_NUMBER:
+                return None
+            if any(ordered[i] + 1 != ordered[i + 1] for i in range(n - 1)):
+                return None  # not increasing one-by-one
+            return ordered[0]
+
         best_start: int | None = None
+        best_values: list[int] | None = None
 
-        for pos in range(width):
-            values = [int(tl[pos].group()) for tl in token_lists]
-            if len(set(values)) != len(values):
-                continue  # not distinct → release ID / quality / season token
-            ordered = sorted(values)
-            if ordered[-1] > 99:
-                continue  # unrealistic episode number → likely a release ID
-            if any(ordered[i] + 1 != ordered[i + 1] for i in range(len(ordered) - 1)):
-                continue  # not a gap-free sequence
-            if best_start is None or ordered[0] < best_start:
-                best_start = ordered[0]
-                best_pos = pos
+        for i in range(max_len):
+            # Position i counted from the start of each filename.
+            left = [t[i] if i < len(t) else None for t in token_int_lists]
+            # Position i counted from the end of each filename.
+            right = [t[len(t) - 1 - i] if i < len(t) else None for t in token_int_lists]
+            for candidate in (left, right):
+                start = is_one_by_one(candidate)
+                if start is not None and (best_start is None or start < best_start):
+                    best_start = start
+                    best_values = [v for v in candidate]  # type: ignore[misc]
 
-        return best_pos
+        return best_values
 
     def _single_file_episode(self, filename: str) -> tuple[int | None, int | None]:
         """Resolve (episode, episode_end) for a lone file via standard parsing."""
@@ -290,8 +323,8 @@ class FileProcessingUtils:
         """Resolve episodes for every file inside one season directory.
 
         ``files`` is a list of ``(original_path, filename)``.  Episodes are taken
-        from the numeric token that increases sequentially across the files; when
-        no such token exists the method falls back to per-file standard parsing.
+        from the numeric value that increases one-by-one across the files; when
+        no such value exists the method falls back to per-file standard parsing.
         Returns ``(episode, episode_end, original_path, filename)`` for every
         file that could be resolved.
         """
@@ -303,17 +336,19 @@ class FileProcessingUtils:
             episode, episode_end = self._single_file_episode(filename)
             return [(episode, episode_end, line, filename)] if episode is not None else []
 
-        token_lists = [list(re.finditer(r"\d+", Path(fn).stem)) for _, fn in files]
-        position = self._detect_episode_token_position(token_lists)
+        token_int_lists = [
+            [int(m.group()) for m in re.finditer(r"\d+", Path(fn).stem)]
+            for _, fn in files
+        ]
+        values = self._sequential_episode_values(token_int_lists)
 
         resolved: list[tuple[int, int | None, str, str]] = []
-        if position is not None:
-            for (line, filename), tokens in zip(files, token_lists):
-                episode = int(tokens[position].group())
+        if values is not None:
+            for (line, filename), episode in zip(files, values):
                 resolved.append((episode, None, line, filename))
             return resolved
 
-        # No clear sequential token → fall back to per-file standard parsing.
+        # No clear one-by-one value → fall back to per-file standard parsing.
         for line, filename in files:
             episode, episode_end = self._single_file_episode(filename)
             if episode is not None:
@@ -323,13 +358,20 @@ class FileProcessingUtils:
     def _detect_structured_seasons(
         self, lines: list[str]
     ) -> tuple[str, str | None, dict[int, list[tuple[str, str]]]] | None:
-        """Detect a multi-season layout where season directories form a run.
+        """Detect a season layout from the directory structure.
 
-        Groups video files by their immediate parent directory, extracts a season
-        number from each directory and only accepts the layout when those season
-        numbers form a gap-free consecutive sequence.  Returns
-        ``(show_name, year, {season: [(original_path, filename)]})`` or ``None``
-        when no unambiguous season sequence exists (in which case the caller
+        Groups video files by their immediate parent directory and reads a season
+        number from each directory name.  The layout is accepted when either:
+
+        * **a single season directory** holds more than one media file (multiple
+          episodes in one directory \u2192 that directory is a season), or
+        * **several season directories** whose numbers form a gap-free
+          consecutive run (S01, S02, S03 \u2026), all within ``MAX_SEASON_NUMBER``.
+
+        The season number always comes from the directory; the episode number is
+        derived per directory from the numeric value that increases one-by-one
+        across its files.  Returns ``(show_name, year, {season: [(path, name)]})``
+        or ``None`` when no unambiguous season can be identified (the caller then
         falls back to filename-based parsing).
         """
         by_parent: dict[str, list[tuple[str, str]]] = defaultdict(list)
@@ -351,22 +393,39 @@ class FileProcessingUtils:
                 first_root = parts[0]
             by_parent[parts[-2]].append((line, filename))
 
-        if len(by_parent) < 2:
-            return None  # need at least two season directories for a sequence
-
+        # Keep only the directories whose name carries a season number.
         dir_to_season: dict[str, int] = {}
-        for directory in by_parent:
+        for directory, files in by_parent.items():
             season = self._extract_season_from_dir(directory)
-            if season is None:
-                return None  # a directory without a season number → ambiguous
-            dir_to_season[directory] = season
+            if season is not None:
+                dir_to_season[directory] = season
 
-        if not self._is_consecutive(list(dir_to_season.values())):
+        if not dir_to_season:
             return None
+
+        seasons = list(dir_to_season.values())
+        # Duplicate season numbers across directories are ambiguous.
+        if len(seasons) != len(set(seasons)):
+            return None
+        # A real show has a sane number of seasons and none above the cap.
+        if len(seasons) > MAX_SEASON_NUMBER or any(s > MAX_SEASON_NUMBER for s in seasons):
+            return None
+
+        if len(dir_to_season) >= 2:
+            # Several season directories must form a consecutive sequence.
+            if not self._is_consecutive(seasons):
+                return None
+        else:
+            # A single season directory only counts when it holds multiple files.
+            only_dir = next(iter(dir_to_season))
+            if len(by_parent[only_dir]) < 2:
+                return None
 
         show_name, year = self.parse_show_info(first_root or "")
         by_season: dict[int, list[tuple[str, str]]] = {
-            dir_to_season[directory]: files for directory, files in by_parent.items()
+            dir_to_season[directory]: files
+            for directory, files in by_parent.items()
+            if directory in dir_to_season
         }
         return show_name, year, by_season
 

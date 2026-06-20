@@ -284,6 +284,66 @@ class TestDirectoryStructureDetection:
         numbers = sorted(s.number for s in shows[0].seasons)
         assert numbers == [1, 3]
 
+    def test_unrealistic_season_numbers_fall_back(self, utils):
+        """Directory 'season' numbers above the cap (e.g. 323, 1545) are not real
+        seasons; directory detection is skipped so no bogus high season survives."""
+        lines = [
+            "Show.S323.720p/Show.S01E01.720p.mkv",
+            "Show.S324.720p/Show.S01E02.720p.mkv",
+        ]
+        shows = utils.parse(lines)
+        # Season must come from the filenames (S01), never the 323/324 directories.
+        all_seasons = [s.number for show in shows for s in show.seasons]
+        assert all(n <= 40 for n in all_seasons)
+        assert 323 not in all_seasons and 324 not in all_seasons
+
+    def test_season_number_at_cap_is_allowed(self, utils):
+        """Seasons up to the cap (40) are accepted."""
+        lines = [
+            "Show.S39.720p/Show.S39E01.720p.mkv",
+            "Show.S40.720p/Show.S40E01.720p.mkv",
+        ]
+        shows = utils.parse(lines)
+        assert [s.number for s in shows[0].seasons] == [39, 40]
+
+    def test_single_season_directory_with_multiple_files(self, utils):
+        """Multiple media files in one season directory → that directory is a
+        season; the season number comes from the directory name."""
+        lines = [
+            "Vikings.S03.1080p-grp/Vikings.S03.1080p.x265-grp.1.mkv",
+            "Vikings.S03.1080p-grp/Vikings.S03.1080p.x265-grp.2.mkv",
+            "Vikings.S03.1080p-grp/Vikings.S03.1080p.x265-grp.3.mkv",
+        ]
+        shows = utils.parse(lines)
+        assert len(shows) == 1
+        show = shows[0]
+        assert [s.number for s in show.seasons] == [3]
+        assert [(e.season, e.episode) for e in show.seasons[0].episodes] == [(3, 1), (3, 2), (3, 3)]
+
+    def test_episode_ignores_release_id_picks_sequential_value(self, utils):
+        """Every numeric value is examined; the constant release ID is ignored and
+        the value that increases one-by-one becomes the episode number."""
+        lines = [
+            "Show.S02.1080p/Show.998877.1080p.x265.1.mkv",
+            "Show.S02.1080p/Show.998877.1080p.x265.2.mkv",
+            "Show.S02.1080p/Show.998877.1080p.x265.3.mkv",
+        ]
+        shows = utils.parse(lines)
+        eps = shows[0].seasons[0].episodes
+        assert [(e.season, e.episode) for e in eps] == [(2, 1), (2, 2), (2, 3)]
+
+    def test_episode_token_found_via_right_alignment(self, utils):
+        """The episode number sits at the end while a leading number varies; the
+        right-aligned scan still locates the one-by-one sequence."""
+        lines = [
+            "Show.S05.720p/2021.Show.x264.1.mkv",
+            "Show.S05.720p/2022.Show.x264.2.mkv",
+            "Show.S05.720p/2023.Show.x264.3.mkv",
+        ]
+        shows = utils.parse(lines)
+        eps = shows[0].seasons[0].episodes
+        assert [(e.season, e.episode) for e in eps] == [(5, 1), (5, 2), (5, 3)]
+
     def test_double_episode_preserved_via_fallback(self, utils):
         """When the sequential token is ambiguous (double episodes), the per-file
         standard parser still resolves SxxExx-Exx including the episode end."""
@@ -306,6 +366,10 @@ class TestExtractSeasonFromDir:
             ("Season 3", 3),
             ("Season_04", 4),
             ("Show.1080p.WEB", None),
+            ("Show.S40.720p", 40),
+            ("Show.S41.720p", None),
+            ("Show.S323.720p", None),
+            ("Show.S1545.720p", None),
         ],
     )
     def test_extraction(self, utils, directory, expected):
