@@ -285,6 +285,28 @@ class TestUpdateSingleSymlink:
         # Symlink unchanged
         assert symlink.resolve() == before
 
+    def test_falls_back_to_downloaded_target_root_when_save_path_translation_misses(self, fake_config, tmp_path):
+        svc = _make_service(fake_config)
+
+        # Simulate qBittorrent save path that does NOT include downloaded_directory.
+        fake_config.downloaded_directory = "/host/downloaded_torrents"
+        target = Path(fake_config.downloaded_target_directory)
+        rel = "Tom.and.Jerry/file.mkv"
+        real_file = target / rel
+        real_file.parent.mkdir(parents=True, exist_ok=True)
+        real_file.write_bytes(b"r")
+
+        symlink = tmp_path / "file.mkv"
+        symlink.symlink_to(Path(fake_config.placeholder_starter_path))
+
+        svc._update_single_symlink(
+            save_path="/mnt/other-root/downloaded_torrents",
+            original_file=rel,
+            symlink_str=str(symlink),
+        )
+
+        assert symlink.resolve() == real_file.resolve()
+
 
 class TestUpdateSymlinks:
     def test_updates_all_files_in_order(self, fake_config, tmp_path):
@@ -385,6 +407,28 @@ class TestProcessPlayedItem:
         asyncio.run(svc._process_played_item(item))
         # First call queued; second call deduped via _inflight_keys.
         assert svc._media_download_queue.qsize() == 1
+
+    def test_movie_not_queued_when_symlink_already_points_to_real_media(self, fake_config, repos, tmp_path):
+        svc = _make_service(fake_config)
+        torrent = _save_movie_torrent(repos, imdb="tt5000003", torrent_id=5003)
+        repos.movie.save(__import__("models.movie", fromlist=["Movie"]).Movie(torrent_id=torrent.id))
+
+        real = tmp_path / "real.mkv"
+        real.write_bytes(b"movie")
+        symlink = tmp_path / "movie.mkv"
+        symlink.symlink_to(real)
+
+        _save_local_info(
+            repos,
+            torrent,
+            original_file_path="movie.mkv",
+            symlink_path=str(symlink),
+        )
+
+        item = {"NowPlayingItem": {"Path": str(symlink), "Id": "jf-real"}}
+        asyncio.run(svc._process_played_item(item))
+
+        assert svc._media_download_queue.empty()
 
     def test_show_request_resolves_episode_index_and_show_season(self, fake_config, repos):
         svc = _make_service(fake_config)

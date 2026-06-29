@@ -125,6 +125,9 @@ class TorrentSyncService:
             return
 
         episode_file_index = self._find_episode_index(path, local_info)
+        if self._is_symlink_pointing_to_real_file(local_info, episode_file_index):
+            return
+
         jellyfin_item_id = now_playing.get('Id', '')
         jellyfin_season_id = now_playing.get('SeasonId')
         jellyfin_series_id = now_playing.get('SeriesId')
@@ -526,12 +529,48 @@ class TorrentSyncService:
 
     def _update_single_symlink(self, save_path: str, original_file: str, symlink_str: str) -> None:
         """Update a single symlink to point to the downloaded file."""
-        save_path = save_path.replace(self.config.downloaded_directory, self.config.downloaded_target_directory)
-        downloaded_file = Path(save_path) / original_file
+        translated_save_path = Path(
+            save_path.replace(self.config.downloaded_directory, self.config.downloaded_target_directory)
+        )
+        downloaded_root = Path(self.config.downloaded_target_directory)
+        original_rel = Path(original_file)
+        filename = original_rel.name
+
+        # Candidate paths in container-visible locations.
+        candidates = [
+            translated_save_path / original_rel,
+            downloaded_root / original_rel,
+            translated_save_path / filename,
+            downloaded_root / filename,
+        ]
+
+        downloaded_file = next((candidate for candidate in candidates if candidate.exists()), None)
+
+        # Final fallback: find by filename under target download root.
+        if downloaded_file is None:
+            matches = [p for p in downloaded_root.rglob(filename) if p.is_file()]
+            if len(matches) == 1:
+                downloaded_file = matches[0]
+                self.logger.info("Resolved downloaded file by filename search: %s", downloaded_file)
+            elif len(matches) > 1:
+                downloaded_file = matches[0]
+                self.logger.warning(
+                    "Multiple files named '%s' found under %s; using first match: %s",
+                    filename,
+                    downloaded_root,
+                    downloaded_file,
+                )
+
         symlink = Path(symlink_str)
 
-        if not downloaded_file.exists():
-            self.logger.warning("Downloaded file not found: %s", downloaded_file)
+        if downloaded_file is None or not downloaded_file.exists():
+            self.logger.warning(
+                "Downloaded file not found for original '%s'. save_path='%s' translated='%s' target_root='%s'",
+                original_file,
+                save_path,
+                translated_save_path,
+                downloaded_root,
+            )
             return
 
         if symlink.is_symlink():
@@ -629,6 +668,25 @@ class TorrentSyncService:
                 request.jellyfin_series_id,
             ],
         )
+
+    def _is_symlink_pointing_to_real_file(
+        self,
+        local_info: LocalFileInformation,
+        episode_file_index: int,
+    ) -> bool:
+        """Return True when the selected symlink already points to non-placeholder media."""
+        symlink_paths = [p.strip() for p in local_info.symlink_path.split(";") if p.strip()]
+        if not symlink_paths:
+            return False
+        if episode_file_index < 0 or episode_file_index >= len(symlink_paths):
+            return False
+
+        symlink = Path(symlink_paths[episode_file_index])
+        if not symlink.is_symlink():
+            return False
+
+        target = str(symlink.readlink())
+        return self.config.placeholders_directory not in target
 
     # ── Entry point ───────────────────────────────────────────────────────────
 
