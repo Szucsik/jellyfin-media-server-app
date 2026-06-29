@@ -217,7 +217,10 @@ class FileProcessingUtils:
                 # e.g. 401 → season=4, episode=1
                 season = num // 100
                 episode = num % 100
-                if episode == 0:
+                if season < 1 or season > MAX_SEASON_NUMBER:
+                    # Most often a release date/build number (e.g. 202301).
+                    results.append((None, None, None))
+                elif episode == 0:
                     # 400-style is ambiguous; skip
                     results.append((None, None, None))
                 else:

@@ -124,6 +124,10 @@ class TestParseEpisodeSequence:
     def test_empty_input(self, utils):
         assert utils.parse_episode_sequence([]) == []
 
+    def test_unrealistic_season_token_is_rejected(self, utils):
+        results = utils.parse_episode_sequence(["x.202301.mkv", "x.202302.mkv"])
+        assert results == [(None, None, None), (None, None, None)]
+
 
 class TestParse:
     def test_parses_folder_based_show(self, utils):

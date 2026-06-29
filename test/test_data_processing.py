@@ -158,6 +158,8 @@ class TestShowSeasonSelection:
         # 3 season slots (1, 2, 3) all backed by the same pack torrent
         assert len(seasons) == 3
         assert all(s.torrent_id == pack.id for s in seasons)
+        assert [s.season for s in seasons] == [1, 2, 3]
+        assert all(s.season_to == -1 for s in seasons)
 
     def test_pack_and_single_season_overlap(self, fake_config, repos):
         single = _save(repos, Torrent(torrent_id=1, title="Show.S02.1080p", imdb_link="ttH", quality=Quality.HD, is_show=True))

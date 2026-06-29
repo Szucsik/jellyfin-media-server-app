@@ -1,4 +1,5 @@
 import os
+import shutil
 from pathlib import Path
 import re
 from typing import Counter
@@ -227,7 +228,34 @@ class FileProcessing:
 
         self.logger.info("Starting to generate symlink placeholders")
         self.generate_symlinks_for_movies(movies)
+        self._cleanup_stray_top_level_season_dirs()
         self.generate_symlinks_for_shows(shows)
+
+    def _cleanup_stray_top_level_season_dirs(self) -> None:
+        """Remove buggy top-level season folders directly under the series root.
+
+        These folders are invalid because Jellyfin show layout must be:
+        <series root>/<Show Name>/Season N/<episode file>.
+        """
+        root = Path(self.config.symlink_series_directory)
+        if not root.exists():
+            return
+
+        season_dir_pattern = re.compile(r"^Season\s+\d+$")
+        removed = 0
+
+        for child in root.iterdir():
+            if not child.is_dir():
+                continue
+            if not season_dir_pattern.match(child.name):
+                continue
+
+            self.logger.warning("Removing stray top-level season directory: %s", child)
+            shutil.rmtree(child, ignore_errors=True)
+            removed += 1
+
+        if removed > 0:
+            self.logger.warning("Removed %s stray top-level season directories under %s", removed, root)
 
 
     def generate_symlinks_for_shows(self, shows: list[Show]):
@@ -268,13 +296,31 @@ class FileProcessing:
 
                 if target_directory == "":
                     show_name = utils.get_name_by_id_from_tmdb(imdb_id=imdb_id, api_key=self.config.tmdb_api_key)  # IMDB ID is the same for all the seasons!
+                    if not show_name:
+                        show_name = f"Unknown Show [imdbid-{imdb_id}]"
+                        self.logger.warning(
+                            "TMDB name lookup failed for %s, falling back to %s",
+                            imdb_id,
+                            show_name,
+                        )
                     self.logger.info("Name of the show has been queried from TMDB API: %s", show_name)
                     target_directory = Path(self.config.symlink_series_directory) / Path(show_name)
                 target_directory.mkdir(parents=True, exist_ok=True)
                 
                 symlink_paths: list[str] = []
                 original_paths: list[str] = []
-                for s in show_file_formatted.seasons:
+                expected_seasons: set[int] = set()
+                if season.season > 0:
+                    if season.season_to > 0:
+                        expected_seasons.update(range(season.season, season.season_to + 1))
+                    else:
+                        expected_seasons.add(season.season)
+
+                parsed_seasons = show_file_formatted.seasons
+                if expected_seasons:
+                    parsed_seasons = [s for s in parsed_seasons if s.number in expected_seasons]
+
+                for s in parsed_seasons:
                     season_path = Path(target_directory) / Path(f"Season {str(s.number)}")
                     season_path.mkdir(parents=True, exist_ok=True)
 

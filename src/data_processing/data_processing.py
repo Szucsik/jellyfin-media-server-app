@@ -182,5 +182,12 @@ class DataProcessing:
                     if better(candidate, best):
                         best = candidate
 
-                best[1].show_id = show_id
-                self.config.show_season_repository.save(best[1])
+                # Persist one concrete row per selected season even when the
+                # source torrent is a multi-season pack.
+                selected = ShowSeason(
+                    torrent_id=best[1].torrent_id,
+                    season=season,
+                    season_to=-1,
+                    show_id=show_id,
+                )
+                self.config.show_season_repository.save(selected)
