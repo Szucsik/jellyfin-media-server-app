@@ -172,6 +172,23 @@ class TestFindEpisodeIndex:
         )
         assert svc._find_episode_index("/x/E99.mkv", info) == 0
 
+    def test_matches_by_original_filename_when_played_path_is_downloaded_file(self, fake_config):
+        svc = _make_service(fake_config)
+        info = LocalFileInformation(
+            torrent_id=1,
+            symlink_path=(
+                "/media/series/How I Met Your Mother [imdbid-tt0460649]/Season 1/How I Met Your Mother S01E01.mkv;"
+                "/media/series/How I Met Your Mother [imdbid-tt0460649]/Season 1/How I Met Your Mother S01E02.mkv"
+            ),
+            original_file_path=(
+                "How.I.Met.Your.Mother.S01E01.1080p.WEB-DL.mkv;"
+                "How.I.Met.Your.Mother.S01E02.1080p.WEB-DL.mkv"
+            ),
+        )
+
+        played_real_path = "/downloads/How.I.Met.Your.Mother.S01E02.1080p.WEB-DL.mkv"
+        assert svc._find_episode_index(played_real_path, info) == 1
+
 
 # ═════════════════════════════════════════════════════════════════════════════
 #  _find_qbt_file_index
@@ -389,6 +406,8 @@ class TestProcessPlayedItem:
             "NowPlayingItem": {
                 "Path": "/media/series/S [imdbid-tt7000001]/Season 1/E02.mkv",
                 "Id": "jf-ep2",
+                "SeasonId": "jf-season-1",
+                "SeriesId": "jf-series-1",
             },
         }
         asyncio.run(svc._process_played_item(item))
@@ -399,6 +418,42 @@ class TestProcessPlayedItem:
         assert req.show_season is not None
         assert req.show_season.show_id == 42
         assert req.torrent.is_show is True
+        assert req.jellyfin_season_id == "jf-season-1"
+        assert req.jellyfin_series_id == "jf-series-1"
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  Jellyfin refresh helpers
+# ═════════════════════════════════════════════════════════════════════════════
+
+class TestRefreshHelpers:
+    def test_refresh_items_deduplicates_and_skips_empty_ids(self, fake_config):
+        svc = _make_service(fake_config)
+        svc.jellyfin.refresh_item = MagicMock()
+
+        svc._refresh_jellyfin_items(["ep-1", None, "", "ep-1", "season-1", "season-1", "series-1"])
+
+        assert [c.args[0] for c in svc.jellyfin.refresh_item.call_args_list] == ["ep-1", "season-1", "series-1"]
+
+    def test_refresh_playback_scope_refreshes_episode_then_season_then_series(self, fake_config, repos):
+        svc = _make_service(fake_config)
+        svc.jellyfin.refresh_item = MagicMock()
+
+        torrent = _save_show_torrent(repos, imdb="tt7000099", torrent_id=7099)
+        request = MediaDownloadRequest(
+            imdb_id="tt7000099",
+            played_path="/media/series/X [imdbid-tt7000099]/Season 1/E01.mkv",
+            jellyfin_item_id="ep-1",
+            jellyfin_season_id="season-1",
+            jellyfin_series_id="series-1",
+            torrent=torrent,
+            local_info=LocalFileInformation(),
+            episode_file_index=0,
+        )
+
+        svc._refresh_jellyfin_playback_scope(request)
+
+        assert [c.args[0] for c in svc.jellyfin.refresh_item.call_args_list] == ["ep-1", "season-1", "series-1"]
 
     def test_show_new_episode_sets_interrupt_when_already_downloading(self, fake_config, repos):
         svc = _make_service(fake_config)
