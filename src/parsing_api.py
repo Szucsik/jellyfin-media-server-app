@@ -72,16 +72,4 @@ async def download_torrents() -> str:
     return "Torrents download pipeline finished"
 
 
-# @app.post("/download-torrent-by-id")
-# def download_torrent_By_id(id: int) -> str:
-#     """Start downloading torrent by id. The torrent and the download URL must be in the database."""
-#     config = Configuration()
-#     logger = config.get_logger(__name__)
-
-#     logger.info("Torrent downloading started")
-#     file_processor = FileProcessing(logger=logger, config=config)
-#     file_processor.download_torrent_by_id(id=id)
-
-#     logger.info("Torrent downloaded %s", id)
-
 #     return "Torrentfile downloaded"

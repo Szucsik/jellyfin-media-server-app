@@ -87,7 +87,6 @@ class Configuration:
         or downloaded_directory is None \
         or jellyfin_user_id is None \
         or jellyfin_api_key is None \
-        or jellyfin_user_id is None \
         or qbittorrent_host is None \
         or qbittorrent_port is None \
         or qbittorrent_username is None \

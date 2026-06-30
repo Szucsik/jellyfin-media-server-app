@@ -27,7 +27,7 @@ class DataProcessing:
         self._process_movie_torrent_data(movies)
         self._process_show_torrent_data(shows)
 
-    def _process_movie_torrent_data(self, torrents: list[Torrent], is_serie = False) -> list[Torrent]:
+    def _process_movie_torrent_data(self, torrents: list[Torrent]) -> list[Torrent]:
         """
         Deduplicate torrents that share the same IMDB link, keeping only
         the highest-quality version. Entries with UNASSIGNED quality are

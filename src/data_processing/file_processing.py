@@ -2,9 +2,7 @@ import os
 import shutil
 from pathlib import Path
 import re
-from typing import Counter
 
-import requests
 import torrentool.api as torrentool
 import httpx
 import asyncio
@@ -40,51 +38,6 @@ class FileProcessing:
         await self.__download_torrent_files()
         self.__generate_symlink_to_placeholders()
 
-    async def download_torrent_by_id(self, id: int):
-        """Download torrent files by torrent id, not ncore torrent id but torrent ids from the database"""
-        associated_torrent: Torrent = self.config.torrent_repository.find_first_by(torrent_id=id)
-        path = f"{self.config.torrent_files_target_location}/{associated_torrent.torrent_id}.torrent"
-        if not os.path.exists(path):
-            self.logger.info("Starting to download torrent: %s", associated_torrent.title)
-            max_tries = 100
-            current_tries = 0
-            response_status = False
-
-            while current_tries < max_tries:
-                try:
-                    self.logger.info("Trying to download")
-                    response = requests.get(associated_torrent.download_link)
-                    if response.status_code == 200:
-                        response_status = True
-                        break
-                    else:
-                        self.logger.info("Non-200 response (%s), attempt: %s/%s", response.status_code, current_tries, max_tries)
-                except:
-                    self.logger.info("Download failed, attempt: %s/%s", current_tries, max_tries)
-
-                current_tries += 1
-                wait_time = 5 * current_tries
-                self.logger.info("Waiting: %s seconds", wait_time)
-                await asyncio.sleep(wait_time)
-
-            if not response_status:
-                self.logger.error("Couldn't download torrent: %s", associated_torrent.title)
-                raise Exception(f"Couldn't download torrent: {associated_torrent.title}")
-
-            with open(path, "wb") as f:
-                f.write(response.content)
-            self.logger.info(
-                "Torrent downloaded successfully for id=%s ncore_id=%s",
-                associated_torrent.id,
-                associated_torrent.torrent_id,
-            )
-
-        else:
-            self.logger.info("Torrent file already exists:%s | %s", associated_torrent.title, associated_torrent.torrent_id)
-
-        self.__get_torrent_media_file_information(path=path, torrent=associated_torrent)
-
-    
     async def __download_torrent_files(self):
         """Download all torrent files that are in the database and if they are not exists"""
         self.logger.info("Download torrents process started")
@@ -202,25 +155,9 @@ class FileProcessing:
             return None
 
         if torrent.is_show:
-            target_file = ""
-            for t in torrent_information.files:
-                if target_file == "":
-                    target_file = t.name
-                else:
-                    target_file += f";{t.name}"
+            target_file = ";".join(t.name for t in torrent_information.files)
         else:
-            names: list[str] = []
-            sizes: list[int] = []
-
-            for t in torrent_information.files:
-                names.append(t.name)
-                sizes.append(t.length)
-
-            max_size = 0
-            for size in sizes:
-                max_size = max(max_size, size)
-
-            target_file = names[sizes.index(max_size)]
+            target_file = max(torrent_information.files, key=lambda t: t.length).name
 
         local_file_information.main_media_files_local_path = target_file
 
