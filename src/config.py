@@ -4,16 +4,32 @@ import os
 from database.db import LocalFilesRepository, MovieRepository, ShowRepository, ShowSeasonsRepository, TorrentRepository
 
 
+class LineCappedFileHandler(logging.FileHandler):
+    """File handler that keeps only the latest `max_lines` lines."""
+
+    def __init__(self, filename: str, max_lines: int = 1000):
+        super().__init__(filename)
+        self.max_lines = max_lines
+
+    def emit(self, record: logging.LogRecord) -> None:
+        super().emit(record)
+        with open(self.baseFilename, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        if len(lines) > self.max_lines:
+            with open(self.baseFilename, "w", encoding="utf-8") as f:
+                f.writelines(lines[-self.max_lines:])
+
+
 class Configuration:
     """Configuration class for environment variables and logging."""
 
-    # Init logger
+    # Init logger: keep only the latest 1000 lines in run.log.
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
         handlers=[
-            logging.FileHandler('run.log'),
+            LineCappedFileHandler('run.log', max_lines=1000),
             logging.StreamHandler(),
         ],
     )

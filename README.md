@@ -156,7 +156,7 @@ Every setting is read from environment variables (see [src/config.py](src/config
 | Jellyfin      | `JELLYFIN_URL`, `JELLYFIN_USER_ID`, `JELLYFIN_API_KEY`                                     |
 | qBittorrent   | `QBITTORRENT_HOST`, `QBITTORRENT_PORT`, `QBITTORRENT_USERNAME`, `QBITTORRENT_PASSWORD`     |
 | TMDB          | `TMDB_API_KEY` (used to resolve nice show names)                                           |
-| Filesystem    | `VOLUME_MOVIE_DIR` / `VOLUME_MOVIE_TARGET_DIR`, `VOLUME_SERIES_DIR` / `VOLUME_SERIES_TARGET_DIR`, `VOLUME_DOWNLOADED_DIR` / `VOLUME_DOWNLOADED_TARGET_DIR`, `VOLUME_PLACEHOLDER_DIR` / `VOLUME_PLACEHOLDER_TARGET_DIR`, `TORRENT_FILES_LOCATION` / `TORRENT_FILES_TARGET_LOCATION`, `VOLUME_DB_PATH` |
+| Filesystem    | `VOLUME_MOVIE_DIR` / `VOLUME_MOVIE_TARGET_DIR`, `VOLUME_SERIES_DIR` / `VOLUME_SERIES_TARGET_DIR`, `VOLUME_DOWNLOADED_DIR` / `VOLUME_DOWNLOADED_TARGET_DIR`, `VOLUME_PLACEHOLDER_DIR` / `VOLUME_PLACEHOLDER_TARGET_DIR`, `TORRENT_FILES_LOCATION` / `TORRENT_FILES_TARGET_LOCATION`, `VOLUME_DB_PATH`, `VOLUME_RUN_LOG_PATH` |
 
 Each `…_DIR` / `…_TARGET_DIR` pair represents the **host (or qBittorrent) view** vs the **container view** of the same directory; the sync service automatically translates between them when rewriting symlinks.
 

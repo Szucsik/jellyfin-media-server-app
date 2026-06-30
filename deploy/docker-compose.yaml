@@ -26,6 +26,9 @@ services:
       - type: bind
         source: ${VOLUME_DB_PATH}        # e.g. /home/you/myproject/database.db
         target: /app/database.db
+      - type: bind
+        source: ${VOLUME_RUN_LOG_PATH}   # e.g. /home/you/myproject/run.log
+        target: /app/run.log
     environment:
       - NCORE_USERNAME=${NCORE_USERNAME}
       - NCORE_PASSWORD=${NCORE_PASSWORD}

@@ -139,6 +139,7 @@ Required env vars:
   - `VOLUME_PLACEHOLDER_DIR` / `VOLUME_PLACEHOLDER_TARGET_DIR` (read-only mount)
   - `TORRENT_FILES_LOCATION` / `TORRENT_FILES_TARGET_LOCATION`
   - `VOLUME_DB_PATH` (bind-mounted onto `/app/database.db`)
+  - `VOLUME_RUN_LOG_PATH` (bind-mounted onto `/app/run.log`)
 
 The placeholder directory must contain these files (referenced as `placeholder_*_path` attributes on `Configuration`):
 
