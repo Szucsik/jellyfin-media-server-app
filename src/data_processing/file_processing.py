@@ -9,6 +9,7 @@ import torrentool.api as torrentool
 import httpx
 import asyncio
 import time
+from datetime import datetime
 
 from config import Configuration
 from models.local_file_information import LocalFileInformation
@@ -52,7 +53,7 @@ class FileProcessing:
             while current_tries < max_tries:
                 try:
                     self.logger.info("Trying to download")
-                    response = requests.get(associated_torrent.download_link, headers=headers)
+                    response = requests.get(associated_torrent.download_link)
                     if response.status_code == 200:
                         response_status = True
                         break
@@ -72,7 +73,11 @@ class FileProcessing:
 
             with open(path, "wb") as f:
                 f.write(response.content)
-            self.logger.info("Torrent downloaded successfully. %s out of %s", torrents_list.index(associated_torrent), len(torrents_list))
+            self.logger.info(
+                "Torrent downloaded successfully for id=%s ncore_id=%s",
+                associated_torrent.id,
+                associated_torrent.torrent_id,
+            )
 
         else:
             self.logger.info("Torrent file already exists:%s | %s", associated_torrent.title, associated_torrent.torrent_id)
@@ -257,11 +262,57 @@ class FileProcessing:
         if removed > 0:
             self.logger.warning("Removed %s stray top-level season directories under %s", removed, root)
 
+    def _get_skipped_shows_report_path(self) -> Path:
+        """Return the report file path for skipped shows."""
+        return Path(self.config.torrent_files_target_location) / "skipped_shows_report.tsv"
+
+    def _append_skipped_show_report(
+        self,
+        show: Show,
+        season,
+        torrent: Torrent,
+        imdb_id: str,
+        reason: str,
+    ) -> None:
+        """Append one skipped show entry to the report file."""
+        report_path = self._get_skipped_shows_report_path()
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+
+        torrent_file_name = f"{torrent.torrent_id}.torrent"
+        torrent_file_path = Path(self.config.torrent_files_target_location) / torrent_file_name
+
+        header = (
+            "timestamp\tshow_id\tseason_id\tseason\tseason_to\ttorrent_db_id\ttorrent_ncore_id"
+            "\ttorrent_title\ttorrent_download_link\timdb_id\ttorrent_file_name\ttorrent_file_path\treason\n"
+        )
+        row = (
+            f"{datetime.utcnow().isoformat()}Z\t"
+            f"{show.id}\t"
+            f"{season.id}\t"
+            f"{season.season}\t"
+            f"{season.season_to}\t"
+            f"{torrent.id}\t"
+            f"{torrent.torrent_id}\t"
+            f"{torrent.title}\t"
+            f"{torrent.download_link}\t"
+            f"{imdb_id}\t"
+            f"{torrent_file_name}\t"
+            f"{torrent_file_path}\t"
+            f"{reason}\n"
+        )
+
+        write_header = not report_path.exists() or report_path.stat().st_size == 0
+        with report_path.open("a", encoding="utf-8") as report_file:
+            if write_header:
+                report_file.write(header)
+            report_file.write(row)
+
 
     def generate_symlinks_for_shows(self, shows: list[Show]):
         """This method is used for generating symlinks to a placeholder media file for every show, season and episode"""
         utils = FileProcessingUtils()
         skipped_shows: list[str] = []
+        report_path = self._get_skipped_shows_report_path()
         for show in shows:
             seasons = self.config.show_season_repository.get_all_seasons_for_show(show.id)
 
@@ -304,7 +355,13 @@ class FileProcessing:
                             associated_torrent.title,
                         )
                         skipped_shows.append(f"{associated_torrent.title} [imdbid-{imdb_id}]")
-                        tmdb_lookup_failed = True
+                        self._append_skipped_show_report(
+                            show=show,
+                            season=season,
+                            torrent=associated_torrent,
+                            imdb_id=imdb_id,
+                            reason="TMDB name lookup failed",
+                        )
                         break
                     self.logger.info("Name of the show has been queried from TMDB API: %s", show_name)
                     target_directory = Path(self.config.symlink_series_directory) / Path(show_name)
@@ -344,8 +401,9 @@ class FileProcessing:
 
         if skipped_shows:
             self.logger.warning(
-                "Skipped %d show(s) because TMDB name lookup failed:\n%s",
+                "Skipped %d show(s) because TMDB name lookup failed. Report file: %s\n%s",
                 len(skipped_shows),
+                report_path,
                 "\n".join(f"  - {s}" for s in skipped_shows),
             )
 
