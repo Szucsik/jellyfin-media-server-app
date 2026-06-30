@@ -168,7 +168,8 @@ class DataProcessing:
                 if is_single_season(show_season.season, show_season.season_to):
                     all_seasons.add(show_season.season)
                 elif show_season.season > 0 and show_season.season_to > 0:
-                    all_seasons.update(range(show_season.season, show_season.season_to + 1)) # Todo: kell a +1?
+                    # Include both endpoints for ranges like S01-S03.
+                    all_seasons.update(range(show_season.season, show_season.season_to + 1))
 
             # For each season pick the best torrent
             for season in sorted(all_seasons):
