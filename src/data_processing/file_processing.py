@@ -261,11 +261,12 @@ class FileProcessing:
     def generate_symlinks_for_shows(self, shows: list[Show]):
         """This method is used for generating symlinks to a placeholder media file for every show, season and episode"""
         utils = FileProcessingUtils()
+        skipped_shows: list[str] = []
         for show in shows:
             seasons = self.config.show_season_repository.get_all_seasons_for_show(show.id)
 
             target_directory = ""
-            
+
             # Has to sleep because of the TMDB API limitations (40/second)
             time.sleep(0.025)
             
@@ -297,14 +298,17 @@ class FileProcessing:
                 if target_directory == "":
                     show_name = utils.get_name_by_id_from_tmdb(imdb_id=imdb_id, api_key=self.config.tmdb_api_key)  # IMDB ID is the same for all the seasons!
                     if not show_name:
-                        show_name = f"Unknown Show [imdbid-{imdb_id}]"
                         self.logger.warning(
-                            "TMDB name lookup failed for %s, falling back to %s",
+                            "TMDB name lookup failed for imdb_id=%s (torrent: %s). Skipping show.",
                             imdb_id,
-                            show_name,
+                            associated_torrent.title,
                         )
+                        skipped_shows.append(f"{associated_torrent.title} [imdbid-{imdb_id}]")
+                        tmdb_lookup_failed = True
+                        break
                     self.logger.info("Name of the show has been queried from TMDB API: %s", show_name)
                     target_directory = Path(self.config.symlink_series_directory) / Path(show_name)
+
                 target_directory.mkdir(parents=True, exist_ok=True)
                 
                 symlink_paths: list[str] = []
@@ -337,6 +341,13 @@ class FileProcessing:
                 local_file.symlink_path = ";".join(symlink_paths)
                 local_file.original_file_path = ";".join(original_paths)
                 self.config.local_files_repository.save(local_file)
+
+        if skipped_shows:
+            self.logger.warning(
+                "Skipped %d show(s) because TMDB name lookup failed:\n%s",
+                len(skipped_shows),
+                "\n".join(f"  - {s}" for s in skipped_shows),
+            )
 
     def generate_symlinks_for_movies(self, movies: list[Movie]):
         """This method is used for generating symlinks to a placeholder media file for every movie"""
