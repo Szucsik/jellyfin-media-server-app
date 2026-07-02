@@ -19,19 +19,19 @@ class ScraperConfig:
 
     def get_browse_hd_movies_url(self, page: int) -> str:
         """Return the url for HD movies page with a specified page number"""
-        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=hd_hun&miszerint=seeders&hogyan=DESC"
+        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=hd_hun&miszerint=ctime&hogyan=DESC"
 
     def get_browse_hd_shows_url(self, page: int) -> str:
         """Return the url for HD show page with a specified page number"""
-        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=hdser_hun&miszerint=seeders&hogyan=DESC"
+        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=hdser_hun&miszerint=ctime&hogyan=DESC"
 
     def get_browser_sd_movies_url(self, page: int) -> str:
         """a"""
-        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=xvid_hun&miszerint=seeders&hogyan=DESC"
+        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=xvid_hun&miszerint=ctime&hogyan=DESC"
 
     def get_browser_sd_shows_url(self, page: int) -> str:
         """a"""
-        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=xvidser_hun&miszerint=seeders&hogyan=DESC"
+        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=xvidser_hun&miszerint=ctime&hogyan=DESC"
 
     def get_torrent_download_url(self, torrent_id: int, key: str) -> str:
         """Return download torrent file link based on torrent id and user key"""
