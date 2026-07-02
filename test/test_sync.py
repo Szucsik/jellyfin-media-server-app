@@ -465,6 +465,49 @@ class TestProcessPlayedItem:
         assert req.jellyfin_season_id == "jf-season-1"
         assert req.jellyfin_series_id == "jf-series-1"
 
+    def test_multi_season_show_resolves_to_correct_season_torrent(self, fake_config, repos):
+        """A played Season 2 episode must resolve to the Season 2 torrent even when a
+        Season 1 torrent shares the same IMDb ID and is returned first."""
+        svc = _make_service(fake_config)
+
+        s1 = _save_show_torrent(repos, imdb="tt7000010", torrent_id=7010, title="Show.S01.1080p")
+        s2 = _save_show_torrent(repos, imdb="tt7000010", torrent_id=7011, title="Show.S02.1080p")
+        repos.show_season.save(ShowSeason(torrent_id=s1.id, season=1, season_to=1, show_id=77))
+        s2_season = repos.show_season.save(ShowSeason(torrent_id=s2.id, season=2, season_to=2, show_id=77))
+
+        _save_local_info(
+            repos, s1,
+            original_file_path="S1/E01.mkv;S1/E02.mkv",
+            symlink_path=(
+                "/media/series/Show [imdbid-tt7000010]/Season 1/E01.mkv;"
+                "/media/series/Show [imdbid-tt7000010]/Season 1/E02.mkv"
+            ),
+        )
+        _save_local_info(
+            repos, s2,
+            original_file_path="S2/E01.mkv;S2/E02.mkv;S2/E03.mkv",
+            symlink_path=(
+                "/media/series/Show [imdbid-tt7000010]/Season 2/E01.mkv;"
+                "/media/series/Show [imdbid-tt7000010]/Season 2/E02.mkv;"
+                "/media/series/Show [imdbid-tt7000010]/Season 2/E03.mkv"
+            ),
+        )
+
+        item = {
+            "NowPlayingItem": {
+                "Path": "/media/series/Show [imdbid-tt7000010]/Season 2/E03.mkv",
+                "Id": "jf-s2e3",
+            },
+        }
+        asyncio.run(svc._process_played_item(item))
+
+        assert svc._media_download_queue.qsize() == 1
+        req = svc._media_download_queue.get_nowait()
+        assert req.torrent.id == s2.id
+        assert req.episode_file_index == 2
+        assert req.show_season is not None
+        assert req.show_season.id == s2_season.id
+
 
 # ═════════════════════════════════════════════════════════════════════════════
 #  Jellyfin refresh helpers

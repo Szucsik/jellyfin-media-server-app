@@ -110,21 +110,20 @@ class TorrentSyncService:
 
         loop = asyncio.get_running_loop()
 
-        torrent: Optional[Torrent] = await loop.run_in_executor(
-            None, self.config.torrent_repository.find_registered_media_by_imdb_id, imdb_id,
+        torrents: list[Torrent] = await loop.run_in_executor(
+            None, self.config.torrent_repository.find_all_registered_media_by_imdb_id, imdb_id,
         )
-        if not torrent:
+        if not torrents:
             self.logger.warning("No torrent in DB for IMDb ID %s", imdb_id)
             return
 
-        local_info: Optional[LocalFileInformation] = await loop.run_in_executor(
-            None, lambda: self.config.local_files_repository.find_first_by(torrent_id=torrent.id),
-        )
-        if not local_info or not local_info.torrent_file_local_path:
-            self.logger.warning("No local torrent file found for torrent %s", torrent.title)
+        resolved = await self._resolve_media_for_path(path, torrents)
+        if resolved is None:
+            self.logger.warning("No local torrent file found for IMDb ID %s", imdb_id)
             return
 
-        episode_file_index = self._find_episode_index(path, local_info)
+        torrent, local_info, episode_file_index = resolved
+
         if self._is_symlink_pointing_to_real_file(local_info, episode_file_index):
             return
 
@@ -175,16 +174,73 @@ class TorrentSyncService:
 
         await self._media_download_queue.put(request)
 
+    async def _resolve_media_for_path(
+        self,
+        played_path: str,
+        torrents: list[Torrent],
+    ) -> Optional[tuple[Torrent, LocalFileInformation, int]]:
+        """Resolve which torrent (and file index) the played path belongs to.
+
+        A multi-season show has one torrent per season sharing the same IMDb ID, so
+        the played episode may live in any of them. Prefer the torrent whose local
+        file information confidently matches the played path; only fall back to the
+        first available torrent (index 0) when nothing matches.
+        """
+        loop = asyncio.get_running_loop()
+
+        fallback: Optional[tuple[Torrent, LocalFileInformation]] = None
+
+        for torrent in torrents:
+            local_info: Optional[LocalFileInformation] = await loop.run_in_executor(
+                None, lambda t=torrent: self.config.local_files_repository.find_first_by(torrent_id=t.id),
+            )
+            if not local_info or not local_info.torrent_file_local_path:
+                continue
+
+            matched = self._match_episode_index(played_path, local_info)
+            if matched is not None:
+                return torrent, local_info, matched
+
+            if fallback is None:
+                fallback = (torrent, local_info)
+
+        if fallback is not None:
+            fallback_torrent, fallback_local_info = fallback
+            self.logger.warning(
+                "Could not match played path '%s' to an episode index across %d torrent(s), defaulting to 0",
+                unquote(played_path.strip()),
+                len(torrents),
+            )
+            return fallback_torrent, fallback_local_info, 0
+
+        return None
+
     def _find_episode_index(self, played_path: str, local_info: LocalFileInformation) -> int:
         """Find which file index in the torrent corresponds to the played path."""
+        matched = self._match_episode_index(played_path, local_info)
+        if matched is not None:
+            return matched
+
+        self.logger.warning(
+            "Could not match played path '%s' to an episode index, defaulting to 0",
+            unquote(played_path.strip()),
+        )
+        return 0
+
+    def _match_episode_index(self, played_path: str, local_info: LocalFileInformation) -> Optional[int]:
+        """Return the file index matching the played path, or None if no confident match.
+
+        Unlike :meth:`_find_episode_index`, this never falls back to 0 — callers use
+        the ``None`` result to decide the played episode belongs to a different torrent
+        (e.g. another season of the same show).
+        """
         symlink_paths = [p.strip() for p in local_info.symlink_path.split(";") if p.strip()]
         original_files = [p.strip() for p in local_info.original_file_path.split(";") if p.strip()]
         played_path_norm = unquote(played_path.strip())
         played_filename = Path(played_path_norm).name
 
         if not symlink_paths:
-            self.logger.warning("No symlink paths available for matching, defaulting to 0")
-            return 0
+            return None
 
         # 1) Exact path match against known symlink paths.
         for i, symlink_path in enumerate(symlink_paths):
@@ -216,11 +272,7 @@ class TorrentSyncService:
             if i < len(symlink_paths) and played_path_norm.endswith(original_file):
                 return i
 
-        self.logger.warning(
-            "Could not match played path '%s' to an episode index, defaulting to 0",
-            played_path_norm,
-        )
-        return 0
+        return None
 
     @staticmethod
     def _extract_episode_token(name: str) -> Optional[tuple[int, int]]:

@@ -215,6 +215,28 @@ class TorrentRepository(BaseRepository):
                 session.expunge(record)
             return record
 
+    def find_all_registered_media_by_imdb_id(self, imdb_id: str) -> list[Torrent]:
+        """Find all torrents for the given IMDb ID that are linked to a Movie or ShowSeason.
+
+        A multi-season show has one torrent per season, all sharing the same IMDb ID,
+        so callers must resolve which torrent holds the played episode.
+        """
+        with get_session(self.engine) as session:
+            statement = (
+                select(self.model)
+                .where(self.model.imdb_link.contains(imdb_id))
+                .where(
+                    or_(
+                        exists().where(Movie.torrent_id == self.model.id),
+                        exists().where(ShowSeason.torrent_id == self.model.id),
+                    )
+                )
+            )
+            records = session.exec(statement).all()
+            for record in records:
+                session.expunge(record)
+            return list(records)
+
 class MovieRepository(BaseRepository):
     """Movie-specific queries on top of the generic CRUD layer."""
 
