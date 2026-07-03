@@ -327,8 +327,8 @@ class FileProcessing:
 
                         if os.path.islink(symlink_path):
                             os.unlink(symlink_path)
-
-                        Path(symlink_path).symlink_to(self.config.placeholder_starter_path)
+                            Path(symlink_path).symlink_to(self.config.placeholder_starter_path)
+                            
                         symlink_paths.append(str(symlink_path))
                         original_paths.append(e.original_path)
 
@@ -422,8 +422,7 @@ class FileProcessing:
 
                 if os.path.islink(symlink_path):
                     os.unlink(symlink_path)
-
-                Path(symlink_path).symlink_to(self.config.placeholder_starter_path)
+                    Path(symlink_path).symlink_to(self.config.placeholder_starter_path)
 
                 local_file.symlink_path = str(symlink_path)
                 local_file.original_file_path = file
