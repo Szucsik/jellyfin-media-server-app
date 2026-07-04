@@ -325,8 +325,8 @@ class FileProcessing:
                     for e in s.episodes:
                         symlink_path = season_path / Path(e.filename)
 
-                        if os.path.islink(symlink_path):
-                            os.unlink(symlink_path)
+                        if not os.path.islink(symlink_path):
+                            #os.unlink(symlink_path)
                             Path(symlink_path).symlink_to(self.config.placeholder_starter_path)
                             
                         symlink_paths.append(str(symlink_path))
@@ -420,8 +420,8 @@ class FileProcessing:
 
                 symlink_path = Path(target_directory) / Path(file).name
 
-                if os.path.islink(symlink_path):
-                    os.unlink(symlink_path)
+                if not os.path.islink(symlink_path):
+                    #os.unlink(symlink_path)
                     Path(symlink_path).symlink_to(self.config.placeholder_starter_path)
 
                 local_file.symlink_path = str(symlink_path)
