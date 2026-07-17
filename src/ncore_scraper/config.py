@@ -17,13 +17,22 @@ class ScraperConfig:
     sleep_time_min: int = 2
     sleep_time_max: int = 7
 
+
+
+    browse_sort_types = {
+        "refresh": "ctime",
+        "full_scan": "seeders"
+    }
+
+    scan_type = "full_scan"
+
     def get_browse_hd_movies_url(self, page: int) -> str:
         """Return the url for HD movies page with a specified page number"""
-        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=hd_hun&miszerint=ctime&hogyan=DESC"
+        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=hd_hun&miszerint={self.browse_sort_types[self.scan_type]}&hogyan=DESC"
 
     def get_browse_hd_shows_url(self, page: int) -> str:
         """Return the url for HD show page with a specified page number"""
-        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=hdser_hun&miszerint=ctime&hogyan=DESC"
+        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=hdser_hun&miszerint={self.browse_sort_types[self.scan_type]}&hogyan=DESC"
 
     def get_browser_sd_movies_url(self, page: int) -> str:
         """a"""

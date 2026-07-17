@@ -47,6 +47,10 @@ class Configuration:
     show_repository = ShowRepository()
     local_files_repository = LocalFilesRepository()
 
+    # Scan type
+
+    scan_type: str = "full_scan"  # full_scan / refresh
+
     # Ncore variables
     username = os.getenv("NCORE_USERNAME")
     password = os.getenv("NCORE_PASSWORD")

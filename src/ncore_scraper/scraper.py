@@ -38,6 +38,7 @@ class Scraper:
         self.torrent_repository = TorrentRepository()
 
         self.config = ScraperConfig()
+        self.config.scan_type = config.scan_type
         self.selectors = ScraperSelectors()
         if for_test is not True:
             self.driver = webdriver.Firefox(options=self.config.driver_options)
