@@ -1,13 +1,13 @@
 import os
+import shutil
 from pathlib import Path
 import re
-from typing import Counter
 
-import requests
 import torrentool.api as torrentool
 import httpx
 import asyncio
 import time
+from datetime import datetime
 
 from config import Configuration
 from models.local_file_information import LocalFileInformation
@@ -38,47 +38,6 @@ class FileProcessing:
         await self.__download_torrent_files()
         self.__generate_symlink_to_placeholders()
 
-    async def download_torrent_by_id(self, id: int):
-        """Download torrent files by torrent id, not ncore torrent id but torrent ids from the database"""
-        associated_torrent: Torrent = self.config.torrent_repository.find_first_by(torrent_id=id)
-        path = f"{self.config.torrent_files_target_location}/{associated_torrent.torrent_id}.torrent"
-        if not os.path.exists(path):
-            self.logger.info("Starting to download torrent: %s", associated_torrent.title)
-            max_tries = 100
-            current_tries = 0
-            response_status = False
-
-            while current_tries < max_tries:
-                try:
-                    self.logger.info("Trying to download")
-                    response = requests.get(associated_torrent.download_link, headers=headers)
-                    if response.status_code == 200:
-                        response_status = True
-                        break
-                    else:
-                        self.logger.info("Non-200 response (%s), attempt: %s/%s", response.status_code, current_tries, max_tries)
-                except:
-                    self.logger.info("Download failed, attempt: %s/%s", current_tries, max_tries)
-
-                current_tries += 1
-                wait_time = 5 * current_tries
-                self.logger.info("Waiting: %s seconds", wait_time)
-                await asyncio.sleep(wait_time)
-
-            if not response_status:
-                self.logger.error("Couldn't download torrent: %s", associated_torrent.title)
-                raise Exception(f"Couldn't download torrent: {associated_torrent.title}")
-
-            with open(path, "wb") as f:
-                f.write(response.content)
-            self.logger.info("Torrent downloaded successfully. %s out of %s", torrents_list.index(associated_torrent), len(torrents_list))
-
-        else:
-            self.logger.info("Torrent file already exists:%s | %s", associated_torrent.title, associated_torrent.torrent_id)
-
-        self.__get_torrent_media_file_information(path=path, torrent=associated_torrent)
-
-    
     async def __download_torrent_files(self):
         """Download all torrent files that are in the database and if they are not exists"""
         self.logger.info("Download torrents process started")
@@ -196,25 +155,9 @@ class FileProcessing:
             return None
 
         if torrent.is_show:
-            target_file = ""
-            for t in torrent_information.files:
-                if target_file == "":
-                    target_file = t.name
-                else:
-                    target_file += f";{t.name}"
+            target_file = ";".join(t.name for t in torrent_information.files)
         else:
-            names: list[str] = []
-            sizes: list[int] = []
-
-            for t in torrent_information.files:
-                names.append(t.name)
-                sizes.append(t.length)
-
-            max_size = 0
-            for size in sizes:
-                max_size = max(max_size, size)
-
-            target_file = names[sizes.index(max_size)]
+            target_file = max(torrent_information.files, key=lambda t: t.length).name
 
         local_file_information.main_media_files_local_path = target_file
 
@@ -227,17 +170,91 @@ class FileProcessing:
 
         self.logger.info("Starting to generate symlink placeholders")
         self.generate_symlinks_for_movies(movies)
+        self._cleanup_stray_top_level_season_dirs()
         self.generate_symlinks_for_shows(shows)
+
+    def _cleanup_stray_top_level_season_dirs(self) -> None:
+        """Remove buggy top-level season folders directly under the series root.
+
+        These folders are invalid because Jellyfin show layout must be:
+        <series root>/<Show Name>/Season N/<episode file>.
+        """
+        root = Path(self.config.symlink_series_directory)
+        if not root.exists():
+            return
+
+        season_dir_pattern = re.compile(r"^Season\s+\d+$")
+        removed = 0
+
+        for child in root.iterdir():
+            if not child.is_dir():
+                continue
+            if not season_dir_pattern.match(child.name):
+                continue
+
+            self.logger.warning("Removing stray top-level season directory: %s", child)
+            shutil.rmtree(child, ignore_errors=True)
+            removed += 1
+
+        if removed > 0:
+            self.logger.warning("Removed %s stray top-level season directories under %s", removed, root)
+
+    def _get_skipped_shows_report_path(self) -> Path:
+        """Return the report file path for skipped shows."""
+        return Path(self.config.torrent_files_target_location) / "skipped_shows_report.tsv"
+
+    def _append_skipped_show_report(
+        self,
+        show: Show,
+        season,
+        torrent: Torrent,
+        imdb_id: str,
+        reason: str,
+    ) -> None:
+        """Append one skipped show entry to the report file."""
+        report_path = self._get_skipped_shows_report_path()
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+
+        torrent_file_name = f"{torrent.torrent_id}.torrent"
+        torrent_file_path = Path(self.config.torrent_files_target_location) / torrent_file_name
+
+        header = (
+            "timestamp\tshow_id\tseason_id\tseason\tseason_to\ttorrent_db_id\ttorrent_ncore_id"
+            "\ttorrent_title\ttorrent_download_link\timdb_id\ttorrent_file_name\ttorrent_file_path\treason\n"
+        )
+        row = (
+            f"{datetime.utcnow().isoformat()}Z\t"
+            f"{show.id}\t"
+            f"{season.id}\t"
+            f"{season.season}\t"
+            f"{season.season_to}\t"
+            f"{torrent.id}\t"
+            f"{torrent.torrent_id}\t"
+            f"{torrent.title}\t"
+            f"{torrent.download_link}\t"
+            f"{imdb_id}\t"
+            f"{torrent_file_name}\t"
+            f"{torrent_file_path}\t"
+            f"{reason}\n"
+        )
+
+        write_header = not report_path.exists() or report_path.stat().st_size == 0
+        with report_path.open("a", encoding="utf-8") as report_file:
+            if write_header:
+                report_file.write(header)
+            report_file.write(row)
 
 
     def generate_symlinks_for_shows(self, shows: list[Show]):
         """This method is used for generating symlinks to a placeholder media file for every show, season and episode"""
         utils = FileProcessingUtils()
+        skipped_shows: list[str] = []
+        report_path = self._get_skipped_shows_report_path()
         for show in shows:
             seasons = self.config.show_season_repository.get_all_seasons_for_show(show.id)
 
             target_directory = ""
-            
+
             # Has to sleep because of the TMDB API limitations (40/second)
             time.sleep(0.025)
             
@@ -268,29 +285,64 @@ class FileProcessing:
 
                 if target_directory == "":
                     show_name = utils.get_name_by_id_from_tmdb(imdb_id=imdb_id, api_key=self.config.tmdb_api_key)  # IMDB ID is the same for all the seasons!
+                    if not show_name:
+                        self.logger.warning(
+                            "TMDB name lookup failed for imdb_id=%s (torrent: %s). Skipping show.",
+                            imdb_id,
+                            associated_torrent.title,
+                        )
+                        skipped_shows.append(f"{associated_torrent.title} [imdbid-{imdb_id}]")
+                        self._append_skipped_show_report(
+                            show=show,
+                            season=season,
+                            torrent=associated_torrent,
+                            imdb_id=imdb_id,
+                            reason="TMDB name lookup failed",
+                        )
+                        break
                     self.logger.info("Name of the show has been queried from TMDB API: %s", show_name)
                     target_directory = Path(self.config.symlink_series_directory) / Path(show_name)
+
                 target_directory.mkdir(parents=True, exist_ok=True)
                 
                 symlink_paths: list[str] = []
                 original_paths: list[str] = []
-                for s in show_file_formatted.seasons:
+                expected_seasons: set[int] = set()
+                if season.season > 0:
+                    if season.season_to > 0:
+                        expected_seasons.update(range(season.season, season.season_to + 1))
+                    else:
+                        expected_seasons.add(season.season)
+
+                parsed_seasons = show_file_formatted.seasons
+                if expected_seasons:
+                    parsed_seasons = [s for s in parsed_seasons if s.number in expected_seasons]
+
+                for s in parsed_seasons:
                     season_path = Path(target_directory) / Path(f"Season {str(s.number)}")
                     season_path.mkdir(parents=True, exist_ok=True)
 
                     for e in s.episodes:
                         symlink_path = season_path / Path(e.filename)
 
-                        if os.path.islink(symlink_path):
-                            os.unlink(symlink_path)
-
-                        Path(symlink_path).symlink_to(self.config.placeholder_starter_path)
+                        if not os.path.islink(symlink_path):
+                            #os.unlink(symlink_path)
+                            Path(symlink_path).symlink_to(self.config.placeholder_starter_path)
+                            
                         symlink_paths.append(str(symlink_path))
                         original_paths.append(e.original_path)
 
                 local_file.symlink_path = ";".join(symlink_paths)
                 local_file.original_file_path = ";".join(original_paths)
                 self.config.local_files_repository.save(local_file)
+
+        if skipped_shows:
+            self.logger.warning(
+                "Skipped %d show(s) because TMDB name lookup failed. Report file: %s\n%s",
+                len(skipped_shows),
+                report_path,
+                "\n".join(f"  - {s}" for s in skipped_shows),
+            )
 
     def generate_symlinks_for_movies(self, movies: list[Movie]):
         """This method is used for generating symlinks to a placeholder media file for every movie"""
@@ -368,10 +420,9 @@ class FileProcessing:
 
                 symlink_path = Path(target_directory) / Path(file).name
 
-                if os.path.islink(symlink_path):
-                    os.unlink(symlink_path)
-
-                Path(symlink_path).symlink_to(self.config.placeholder_starter_path)
+                if not os.path.islink(symlink_path):
+                    #os.unlink(symlink_path)
+                    Path(symlink_path).symlink_to(self.config.placeholder_starter_path)
 
                 local_file.symlink_path = str(symlink_path)
                 local_file.original_file_path = file

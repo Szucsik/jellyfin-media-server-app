@@ -124,6 +124,10 @@ class TestParseEpisodeSequence:
     def test_empty_input(self, utils):
         assert utils.parse_episode_sequence([]) == []
 
+    def test_unrealistic_season_token_is_rejected(self, utils):
+        results = utils.parse_episode_sequence(["x.202301.mkv", "x.202302.mkv"])
+        assert results == [(None, None, None), (None, None, None)]
+
 
 class TestParse:
     def test_parses_folder_based_show(self, utils):
@@ -154,6 +158,20 @@ class TestParse:
         eps = shows[0].seasons[0].episodes
         assert len(eps) == 1
 
+    @pytest.mark.parametrize(
+        "folder_name",
+        ["extras", "EXTRAS", "Extras", "sample", "Samples"],
+    )
+    def test_skips_excluded_show_directories(self, utils, folder_name):
+        lines = [
+            f"Show.S01/{folder_name}/Show.S01E99.mkv",
+            "Show.S01/Show.S01E01.mkv",
+        ]
+        shows = utils.parse(lines)
+        eps = shows[0].seasons[0].episodes
+        assert len(eps) == 1
+        assert eps[0].episode == 1
+
     def test_skips_non_video(self, utils):
         lines = ["Show.S01/notes.txt"]
         assert utils.parse(lines) == []
@@ -179,6 +197,187 @@ class TestParse:
         shows = utils.parse(lines)
         eps = shows[0].seasons[0].episodes
         assert [e.episode for e in eps] == [1, 2, 3]
+
+    def test_messy_flat_seep_files_grouped_as_one_show(self, utils):
+        """Flat files whose names start with the episode code must all end up
+        in a single Show rather than one Show per file."""
+        lines = [
+            "101_episode.mkv",
+            "102_asdasd.mkv",
+            "111.sode.mkv",
+        ]
+        shows = utils.parse(lines)
+        assert len(shows) == 1, "All files must belong to one Show"
+        eps = shows[0].seasons[0].episodes
+        assert [(e.season, e.episode) for e in eps] == [(1, 1), (1, 2), (1, 11)]
+
+    def test_messy_flat_seep_bare_numbers(self, utils):
+        """Bare 3-digit SEEP filenames with no descriptive tokens."""
+        lines = ["101.mkv", "102.mkv", "111.mkv"]
+        shows = utils.parse(lines)
+        assert len(shows) == 1
+        eps = shows[0].seasons[0].episodes
+        assert [(e.season, e.episode) for e in eps] == [(1, 1), (1, 2), (1, 11)]
+
+    def test_messy_flat_seep_with_folder_context(self, utils):
+        """When files ARE inside a folder the show name comes from the folder
+        and sequence detection still works for the same messy patterns."""
+        lines = [
+            "MyShow/101_episode.mkv",
+            "MyShow/102_asdasd.mkv",
+            "MyShow/111.sode.mkv",
+        ]
+        shows = utils.parse(lines)
+        assert len(shows) == 1
+        eps = shows[0].seasons[0].episodes
+        assert [(e.season, e.episode) for e in eps] == [(1, 1), (1, 2), (1, 11)]
+
+
+class TestDirectoryStructureDetection:
+    """Season numbers are taken from consecutive season directories and episodes
+    from the numeric token that increases sequentially within each directory."""
+
+    def test_consecutive_season_dirs(self, utils):
+        lines = [
+            "Sherlock.S01-S04.COMPLETE.720p.BluRay-pcroland/"
+            "Sherlock.S01.720p.BluRay.DD5.1.x264.HUN.ENG-pcroland/"
+            "Sherlock.S01E01.720p.BluRay.DD5.1.x264.HUN.ENG-pcroland.mkv",
+            "Sherlock.S01-S04.COMPLETE.720p.BluRay-pcroland/"
+            "Sherlock.S01.720p.BluRay.DD5.1.x264.HUN.ENG-pcroland/"
+            "Sherlock.S01E02.720p.BluRay.DD5.1.x264.HUN.ENG-pcroland.mkv",
+            "Sherlock.S01-S04.COMPLETE.720p.BluRay-pcroland/"
+            "Sherlock.S01.720p.BluRay.DD5.1.x264.HUN.ENG-pcroland/"
+            "Sherlock.S01E03.720p.BluRay.DD5.1.x264.HUN.ENG-pcroland.mkv",
+            "Sherlock.S01-S04.COMPLETE.720p.BluRay-pcroland/"
+            "Sherlock.S02.720p.BluRay.DD5.1.x264.HUN.ENG-pcroland/"
+            "Sherlock.S02E01.720p.BluRay.DD5.1.x264.HUN.ENG-pcroland.mkv",
+        ]
+        shows = utils.parse(lines)
+        assert len(shows) == 1
+        show = shows[0]
+        assert show.name == "Sherlock"
+        assert [s.number for s in show.seasons] == [1, 2]
+        assert [(e.season, e.episode) for e in show.seasons[0].episodes] == [(1, 1), (1, 2), (1, 3)]
+        assert [(e.season, e.episode) for e in show.seasons[1].episodes] == [(2, 1)]
+
+    def test_season_from_directory_overrides_misleading_filename_numbers(self, utils):
+        """Filenames carry unrelated release IDs; season comes from the directory
+        and the episode from the sequentially-increasing token."""
+        lines = [
+            "Show.S03.1080p.WEB-grp/Show.WEB.554213.1080p-grp.1.mkv",
+            "Show.S03.1080p.WEB-grp/Show.WEB.554213.1080p-grp.2.mkv",
+            "Show.S04.1080p.WEB-grp/Show.WEB.554213.1080p-grp.1.mkv",
+            "Show.S04.1080p.WEB-grp/Show.WEB.554213.1080p-grp.2.mkv",
+        ]
+        shows = utils.parse(lines)
+        assert len(shows) == 1
+        show = shows[0]
+        assert [s.number for s in show.seasons] == [3, 4]
+        assert [(e.season, e.episode) for e in show.seasons[0].episodes] == [(3, 1), (3, 2)]
+        assert [(e.season, e.episode) for e in show.seasons[1].episodes] == [(4, 1), (4, 2)]
+
+    def test_non_consecutive_seasons_fall_back(self, utils):
+        """Gap in the season sequence (1, 3) → directory detection is skipped and
+        the standard SxxExx filename parsing takes over."""
+        lines = [
+            "Show.S01/Show.S01E01.mkv",
+            "Show.S03/Show.S03E01.mkv",
+        ]
+        shows = utils.parse(lines)
+        assert len(shows) == 1
+        numbers = sorted(s.number for s in shows[0].seasons)
+        assert numbers == [1, 3]
+
+    def test_unrealistic_season_numbers_fall_back(self, utils):
+        """Directory 'season' numbers above the cap (e.g. 323, 1545) are not real
+        seasons; directory detection is skipped so no bogus high season survives."""
+        lines = [
+            "Show.S323.720p/Show.S01E01.720p.mkv",
+            "Show.S324.720p/Show.S01E02.720p.mkv",
+        ]
+        shows = utils.parse(lines)
+        # Season must come from the filenames (S01), never the 323/324 directories.
+        all_seasons = [s.number for show in shows for s in show.seasons]
+        assert all(n <= 40 for n in all_seasons)
+        assert 323 not in all_seasons and 324 not in all_seasons
+
+    def test_season_number_at_cap_is_allowed(self, utils):
+        """Seasons up to the cap (40) are accepted."""
+        lines = [
+            "Show.S39.720p/Show.S39E01.720p.mkv",
+            "Show.S40.720p/Show.S40E01.720p.mkv",
+        ]
+        shows = utils.parse(lines)
+        assert [s.number for s in shows[0].seasons] == [39, 40]
+
+    def test_single_season_directory_with_multiple_files(self, utils):
+        """Multiple media files in one season directory → that directory is a
+        season; the season number comes from the directory name."""
+        lines = [
+            "Vikings.S03.1080p-grp/Vikings.S03.1080p.x265-grp.1.mkv",
+            "Vikings.S03.1080p-grp/Vikings.S03.1080p.x265-grp.2.mkv",
+            "Vikings.S03.1080p-grp/Vikings.S03.1080p.x265-grp.3.mkv",
+        ]
+        shows = utils.parse(lines)
+        assert len(shows) == 1
+        show = shows[0]
+        assert [s.number for s in show.seasons] == [3]
+        assert [(e.season, e.episode) for e in show.seasons[0].episodes] == [(3, 1), (3, 2), (3, 3)]
+
+    def test_episode_ignores_release_id_picks_sequential_value(self, utils):
+        """Every numeric value is examined; the constant release ID is ignored and
+        the value that increases one-by-one becomes the episode number."""
+        lines = [
+            "Show.S02.1080p/Show.998877.1080p.x265.1.mkv",
+            "Show.S02.1080p/Show.998877.1080p.x265.2.mkv",
+            "Show.S02.1080p/Show.998877.1080p.x265.3.mkv",
+        ]
+        shows = utils.parse(lines)
+        eps = shows[0].seasons[0].episodes
+        assert [(e.season, e.episode) for e in eps] == [(2, 1), (2, 2), (2, 3)]
+
+    def test_episode_token_found_via_right_alignment(self, utils):
+        """The episode number sits at the end while a leading number varies; the
+        right-aligned scan still locates the one-by-one sequence."""
+        lines = [
+            "Show.S05.720p/2021.Show.x264.1.mkv",
+            "Show.S05.720p/2022.Show.x264.2.mkv",
+            "Show.S05.720p/2023.Show.x264.3.mkv",
+        ]
+        shows = utils.parse(lines)
+        eps = shows[0].seasons[0].episodes
+        assert [(e.season, e.episode) for e in eps] == [(5, 1), (5, 2), (5, 3)]
+
+    def test_double_episode_preserved_via_fallback(self, utils):
+        """When the sequential token is ambiguous (double episodes), the per-file
+        standard parser still resolves SxxExx-Exx including the episode end."""
+        lines = [
+            "Show.S01.720p/Show.S01E01-E02.720p.mkv",
+            "Show.S02.720p/Show.S02E01-E02.720p.mkv",
+        ]
+        shows = utils.parse(lines)
+        assert [s.number for s in shows[0].seasons] == [1, 2]
+        first = shows[0].seasons[0].episodes[0]
+        assert (first.season, first.episode, first.episode_end) == (1, 1, 2)
+
+
+class TestExtractSeasonFromDir:
+    @pytest.mark.parametrize(
+        "directory,expected",
+        [
+            ("Show.S01.720p.BluRay", 1),
+            ("Show.S12.1080p", 12),
+            ("Season 3", 3),
+            ("Season_04", 4),
+            ("Show.1080p.WEB", None),
+            ("Show.S40.720p", 40),
+            ("Show.S41.720p", None),
+            ("Show.S323.720p", None),
+            ("Show.S1545.720p", None),
+        ],
+    )
+    def test_extraction(self, utils, directory, expected):
+        assert utils._extract_season_from_dir(directory) == expected
 
 
 class TestTmdbLookup:

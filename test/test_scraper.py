@@ -183,8 +183,8 @@ class TestExtraction:
         driver, _ = self._build_fake_driver(n_torrents=1)
         scraper.driver = driver
         torrents = scraper._get_torrent_data_from_page(is_show=False, is_hd=False, category="SD")
-        # When is_hd is False, quality is hard-coded to "SD"
-        assert torrents[0].quality == "SD"
+        # When is_hd is False, quality is hard-coded to Quality.SD
+        assert torrents[0].quality is Quality.SD
 
     def test_get_download_key_raises_if_missing(self, scraper):
         scraper.driver = MagicMock()

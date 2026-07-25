@@ -1,5 +1,3 @@
-from typing import Optional
-
 import requests
 
 from config import Configuration
@@ -14,9 +12,6 @@ class JellyfinApi:
         self.server_url = config.jellyfin_url.rstrip("/")
         self.api_key = config.jellyfin_api_key
         self.user_id = config.jellyfin_user_id
-
-        self.state: dict[str, int] = {}
-        self.first_run = True
 
         if not self.api_key:
             raise ValueError("JELLYFIN_API_KEY environment variable is not set")
@@ -41,10 +36,9 @@ class JellyfinApi:
         url = f"{self.server_url}/Sessions"
 
         try:
-            resp = requests.get(url, headers=self._headers(), timeout=300)
+            resp = requests.get(url, headers=self._headers(), timeout=10)
             resp.raise_for_status()
-            data = resp.json()
-            return data
+            return resp.json()
         except requests.RequestException as exc:
             self.logger.error("Failed to fetch items: %s", exc)
             return []
@@ -70,4 +64,4 @@ class JellyfinApi:
             self.logger.info('Jellyfin refresh has been triggered.')
         except requests.RequestException as exc:
             self.logger.error("Failed to refresh item: %s Exception: %s", item_id, exc)
-            return []
+            return

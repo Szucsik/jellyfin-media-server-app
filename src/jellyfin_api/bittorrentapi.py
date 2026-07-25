@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import qbittorrentapi
 import torrentool.api as torrentool
@@ -10,8 +10,8 @@ from config import Configuration
 
 # Speed limits in bytes/sec
 SPEED_UNLIMITED = 0
+SPEED_160_MBPS = 20_000_000  # 160 Mbit/s
 SPEED_20_MBPS = 2_500_000  # 20 Mbit/s
-SPEED_5_MBPS = 625_000  # 5 Mbit/s
 
 
 class BittorrentAPI:
@@ -81,12 +81,15 @@ class BittorrentAPI:
 
         # Wait for metadata
         self.logger.info("Waiting for metadata…")
+        deadline = asyncio.get_running_loop().time() + 300  # 5 minutes
         while True:
             torrents = await loop.run_in_executor(
                 None, lambda: client.torrents_info(torrent_hashes=torrent_hash)
             )
             if torrents and torrents[0].state not in ("metaDL", "checkingResumeData"):
                 break
+            if asyncio.get_running_loop().time() > deadline:
+                raise TimeoutError(f"Timed out waiting for metadata of torrent {torrent_hash}")
             await asyncio.sleep(1)
 
         return torrent_hash
@@ -143,6 +146,7 @@ class BittorrentAPI:
         file_indices: list[int],
         symlink_paths: Optional[list[str]] = None,
         interrupt_event: Optional[asyncio.Event] = None,
+        on_placeholder_updated: Optional[Callable[[], None]] = None,
     ) -> bool:
         """Wait until specific files are fully downloaded.
 
@@ -162,7 +166,7 @@ class BittorrentAPI:
 
             # Check if all target files are complete
             target_files = [f for f in files if f.index in file_indices]
-            all_complete = all(f.progress >= 1.0 for f in target_files)
+            all_complete = bool(target_files) and all(f.progress >= 1.0 for f in target_files)
 
             if all_complete:
                 return True
@@ -180,6 +184,14 @@ class BittorrentAPI:
                 t = torrents[0]
                 speed_mb = t.dlspeed / 1e6
                 eta_s = t.get("eta", -1)
+
+                # qBittorrent often reports unknown ETA for selective downloads.
+                # Fall back to selected-files remaining bytes / current speed.
+                if eta_s < 0 or eta_s == 8640000:
+                    if t.dlspeed > 0 and total_size > 0:
+                        remaining = max(total_size - downloaded, 0)
+                        eta_s = int(remaining / t.dlspeed)
+
                 eta_str = f"{eta_s // 60}m {eta_s % 60}s" if eta_s >= 0 else "unknown"
 
                 self.logger.info(
@@ -188,7 +200,12 @@ class BittorrentAPI:
                 )
 
                 if symlink_paths:
-                    self._update_eta_placeholders(eta_s, symlink_paths)
+                    changed = self._update_eta_placeholders(eta_s, symlink_paths)
+                    if changed and on_placeholder_updated:
+                        await loop.run_in_executor(None, on_placeholder_updated)
+                    self.logger.info("ETA placeholders updated based on torrent-level ETA")
+                else:
+                    self.logger.info("ETA placeholders not updated because no symlink paths provided")
 
             await asyncio.sleep(self.POLL_INTERVAL)
 
@@ -197,6 +214,7 @@ class BittorrentAPI:
         torrent_hash: str,
         symlink_paths: Optional[list[str]] = None,
         interrupt_event: Optional[asyncio.Event] = None,
+        on_placeholder_updated: Optional[Callable[[], None]] = None,
     ) -> bool:
         """Wait until the entire torrent (all enabled files) is complete.
 
@@ -230,9 +248,22 @@ class BittorrentAPI:
             )
 
             if symlink_paths:
-                self._update_eta_placeholders(eta_s, symlink_paths)
+                changed = self._update_eta_placeholders(eta_s, symlink_paths)
+                if changed and on_placeholder_updated:
+                    await loop.run_in_executor(None, on_placeholder_updated)
 
-            if t.state in self.DONE_STATES or t.progress >= 1.0:
+            # qBittorrent can briefly report a done-like torrent state after a
+            # previous selective download. Verify enabled files are complete
+            # before we consider the torrent complete.
+            files = await loop.run_in_executor(
+                None, lambda: client.torrents_files(torrent_hash=torrent_hash)
+            )
+            enabled_files = [f for f in files if getattr(f, "priority", 1) > 0]
+
+            if enabled_files:
+                if all(f.progress >= 1.0 for f in enabled_files):
+                    return True
+            elif t.state in self.DONE_STATES or t.progress >= 1.0:
                 return True
 
             await asyncio.sleep(self.POLL_INTERVAL)
@@ -250,10 +281,19 @@ class BittorrentAPI:
 
     # ── Legacy method (kept for movie downloads) ──────────────────────────────
 
-    async def torrent_task(self, torrent_path: str, symlink_paths: list[str]) -> str:
+    async def torrent_task(
+        self,
+        torrent_path: str,
+        symlink_paths: list[str],
+        on_placeholder_updated: Optional[Callable[[], None]] = None,
+    ) -> str:
         """Add a torrent, wait for it to complete, and return the save_path."""
         torrent_hash = await self.add_torrent(torrent_path)
-        completed = await self.wait_for_torrent_complete(torrent_hash, symlink_paths)
+        completed = await self.wait_for_torrent_complete(
+            torrent_hash,
+            symlink_paths,
+            on_placeholder_updated=on_placeholder_updated,
+        )
         if completed:
             save_path = await self.get_save_path(torrent_hash)
             self.logger.info("Download complete! Saved: %s", save_path)
@@ -262,16 +302,29 @@ class BittorrentAPI:
 
     # ── Placeholder helpers ───────────────────────────────────────────────────
 
-    def _update_eta_placeholders(self, seconds: int, symlink_paths: list[str]) -> None:
+    def _update_eta_placeholders(self, seconds: int, symlink_paths: list[str]) -> bool:
         """Update symlinks with ETA-based placeholder files."""
+        self.logger.debug("Updating ETA placeholders with %d seconds remaining", seconds)
+        
         if seconds < 0 or seconds == 8640000:
-            return
+            self.logger.info("ETA is unknown, skipping placeholder update")
+            return False
 
         minutes = seconds / 60
+        placeholders_dir = self.config.placeholders_directory
+        changed = False
+
+        self.logger.debug("Updating placeholder for symlink: %s", symlink_paths)
 
         for symlink_path in symlink_paths:
             symlink = Path(symlink_path)
+            self.logger.debug("Processing symlink: %s", symlink_path)
             if symlink.is_symlink():
+                # Never replace a symlink that already points to a real downloaded file.
+                current_target = str(symlink.readlink())
+                if placeholders_dir not in current_target:
+                    self.logger.debug("Symlink %s points to a real file (%s), skipping placeholder update", symlink_path, current_target)
+                    continue
                 symlink.unlink()
             if minutes >= 60:
                 symlink.symlink_to(self.config.placeholder_one_hr_left_path)
@@ -285,3 +338,6 @@ class BittorrentAPI:
                 symlink.symlink_to(self.config.placeholder_less_then_five_min_left_path)
             else:
                 symlink.symlink_to(self.config.placeholder_less_then_a_few_min_left_path)
+            changed = True
+
+        return changed
