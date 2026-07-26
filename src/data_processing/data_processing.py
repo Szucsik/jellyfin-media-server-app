@@ -27,6 +27,19 @@ class DataProcessing:
         self._process_movie_torrent_data(movies)
         self._process_show_torrent_data(shows)
 
+    def get_torrent_language(self, torrents: list[Torrent]) -> str:
+        """
+        Find the main language for the target media file(s).
+        Always prioritize Hungarian language.
+        """
+        language: str = "ENG"
+        for t in torrents:
+            if t.language == "HUN":
+                language = "HUN"
+                break
+
+        return language
+
     def _process_movie_torrent_data(self, torrents: list[Torrent]) -> list[Torrent]:
         """
         Deduplicate torrents that share the same IMDB link, keeping only
@@ -55,7 +68,12 @@ class DataProcessing:
             # Prefer the torrent with the numerically higher quality value
             if torrent.quality == Quality.UNASSIGNED:
                 continue  # Never replace a known-quality entry with an unassigned one
-            if existing.quality == Quality.UNASSIGNED or order.get(torrent.quality) < order.get(existing.quality):
+
+            
+            if existing.quality == Quality.UNASSIGNED \
+                or torrent.language == "HUN" and existing.language == "ENG"\
+                or (torrent.language == existing.language and order.get(torrent.quality) < order.get(existing.quality)):
+                
                 best[key] = torrent
 
         for torrent in best.values():
@@ -129,6 +147,7 @@ class DataProcessing:
 
         result: list[Torrent] = []
 
+
         # Iterate over each show seasons grouped by IMDB link
         for imdb_link, series_torrents in by_series.items():
             # Find every season number that appears across all torrents
@@ -143,7 +162,15 @@ class DataProcessing:
                 show = self.config.show_repository.save(Show(imdb_link=imdb_link))
             show_id = show.id
 
+
+            # Always prioritize hungarian tv shows
+            language: str = self.get_torrent_language(series_torrents)
+
             for t in series_torrents:
+                # Only focus on one language for the entire tv show
+                if t.language != language:
+                    continue
+
                 show_season = ShowSeason(torrent_id=t.id)
 
                 season_matches = re.findall(r"S(\d{1,2})", t.title)
