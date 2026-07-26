@@ -88,14 +88,14 @@ class Scraper:
     # Navigation helpers
     # -------------------------------------------------------------------------
 
-    def _get_url(self, page: int, is_show: bool, is_hd: bool, language: Any, media_type: Any):
+    def _get_url(self, page: int, is_show: bool, is_hd: bool, language: Any):
         """Get urls for different torrent scopes"""
         if is_show:
             media_type = self.config.MediaTypeTags.HD_SHOW if is_hd else self.config.MediaTypeTags.SD_SHOW
         else:
             media_type = self.config.MediaTypeTags.HD_MOVIE if is_hd else self.config.MediaTypeTags.SD_MOVIE
 
-            return self.config.get_browse_url(page=page, type=media_type, lang=language, media_type=media_type)
+            return self.config.get_browse_url(page=page, type=media_type, lang=language)
 
     def _open_login_page(self) -> None:
         """Navigate to the login page, retrying until all form elements are present."""
