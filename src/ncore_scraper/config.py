@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 from selenium.webdriver.firefox.options import Options
 
 
@@ -17,30 +18,34 @@ class ScraperConfig:
     sleep_time_min: int = 2
     sleep_time_max: int = 7
 
+    class ScanTypes(Enum):
+        REFRESH = "refresh"
+        FULL_SCAN = "full_scan"
 
+    class Languages(Enum):
+        ENG = "eng"
+        HUN = "hun"
+
+    class MediaTypeTags(Enum):
+        HD_MOVIE = "hd"
+        HD_SHOW = "hdser"
+        SD_MOVIE = "xvid"
+        SD_SHOW = "xvidser"
 
     browse_sort_types = {
         "refresh": "ctime",
         "full_scan": "seeders"
     }
 
-    scan_type = "full_scan"
+    scan_type: ScanTypes = ScanTypes.FULL_SCAN
 
-    def get_browse_hd_movies_url(self, page: int) -> str:
-        """Return the url for HD movies page with a specified page number"""
-        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=hd_hun&miszerint={self.browse_sort_types[self.scan_type]}&hogyan=DESC"
+    def __get_type_tag(self, media_type: MediaTypeTags, language: Languages) -> str:
+        lang_tag: str = "_hun" if language == self.Languages.HUN else ""
+        return media_type.value + lang_tag
 
-    def get_browse_hd_shows_url(self, page: int) -> str:
+    def get_browse_url(self, page: int, type: MediaTypeTags, lang: Languages) -> str:
         """Return the url for HD show page with a specified page number"""
-        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=hdser_hun&miszerint={self.browse_sort_types[self.scan_type]}&hogyan=DESC"
-
-    def get_browser_sd_movies_url(self, page: int) -> str:
-        """a"""
-        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=xvid_hun&miszerint=ctime&hogyan=DESC"
-
-    def get_browser_sd_shows_url(self, page: int) -> str:
-        """a"""
-        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus=xvidser_hun&miszerint=ctime&hogyan=DESC"
+        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus={self.__get_type_tag(type, lang)}&miszerint={self.browse_sort_types[self.scan_type]}&hogyan=DESC"
 
     def get_torrent_download_url(self, torrent_id: int, key: str) -> str:
         """Return download torrent file link based on torrent id and user key"""
