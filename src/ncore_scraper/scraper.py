@@ -95,7 +95,7 @@ class Scraper:
         else:
             media_type = self.config.MediaTypeTags.HD_MOVIE if is_hd else self.config.MediaTypeTags.SD_MOVIE
 
-            return self.config.get_browse_url(page=page, type=media_type, lang=language)
+        return self.config.get_browse_url(page=page, type=media_type, lang=language)
 
     def _open_login_page(self) -> None:
         """Navigate to the login page, retrying until all form elements are present."""
