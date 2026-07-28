@@ -37,7 +37,7 @@ class ScraperConfig:
         "full_scan": "seeders"
     }
 
-    scan_type: ScanTypes = ScanTypes.FULL_SCAN
+    scan_type: ScanTypes = ScanTypes.FULL_SCAN.value
 
     def __get_type_tag(self, media_type: MediaTypeTags, language: Languages) -> str:
         lang_tag: str = "_hun" if language == self.Languages.HUN else ""
@@ -45,7 +45,7 @@ class ScraperConfig:
 
     def get_browse_url(self, page: int, type: MediaTypeTags, lang: Languages) -> str:
         """Return the url for HD show page with a specified page number"""
-        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus={self.__get_type_tag(type, lang)}&miszerint={self.browse_sort_types[self.scan_type.value]}&hogyan=DESC"
+        return f"{self.browse_url}?oldal={page}&tipus=kivalasztottak_kozott&kivalasztott_tipus={self.__get_type_tag(type, lang)}&miszerint={self.browse_sort_types[self.scan_type]}&hogyan=DESC"
 
     def get_torrent_download_url(self, torrent_id: int, key: str) -> str:
         """Return download torrent file link based on torrent id and user key"""
