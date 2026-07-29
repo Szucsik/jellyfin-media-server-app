@@ -147,13 +147,20 @@ class BittorrentAPI:
         symlink_paths: Optional[list[str]] = None,
         interrupt_event: Optional[asyncio.Event] = None,
         on_placeholder_updated: Optional[Callable[[], None]] = None,
+        on_file_complete: Optional[Callable[[int], None]] = None,
     ) -> bool:
         """Wait until specific files are fully downloaded.
+
+        ``on_file_complete`` is invoked with each file index as soon as that file
+        finishes downloading, so callers can relink individual episodes without
+        waiting for the whole batch to complete.
 
         Returns True if files completed, False if interrupted by interrupt_event.
         """
         loop = asyncio.get_running_loop()
         client = await self.connect()
+
+        completed_indices: set[int] = set()
 
         while True:
             if interrupt_event and interrupt_event.is_set():
@@ -166,6 +173,14 @@ class BittorrentAPI:
 
             # Check if all target files are complete
             target_files = [f for f in files if f.index in file_indices]
+
+            # Relink individual files as soon as they finish.
+            if on_file_complete:
+                for f in target_files:
+                    if f.progress >= 1.0 and f.index not in completed_indices:
+                        completed_indices.add(f.index)
+                        await loop.run_in_executor(None, on_file_complete, f.index)
+
             all_complete = bool(target_files) and all(f.progress >= 1.0 for f in target_files)
 
             if all_complete:
@@ -215,13 +230,20 @@ class BittorrentAPI:
         symlink_paths: Optional[list[str]] = None,
         interrupt_event: Optional[asyncio.Event] = None,
         on_placeholder_updated: Optional[Callable[[], None]] = None,
+        on_file_complete: Optional[Callable[[int], None]] = None,
     ) -> bool:
         """Wait until the entire torrent (all enabled files) is complete.
+
+        ``on_file_complete`` is invoked with each file index as soon as that file
+        finishes downloading, so callers can relink individual episodes without
+        waiting for the whole torrent to complete.
 
         Returns True if completed, False if interrupted.
         """
         loop = asyncio.get_running_loop()
         client = await self.connect()
+
+        completed_indices: set[int] = set()
 
         while True:
             if interrupt_event and interrupt_event.is_set():
@@ -259,6 +281,13 @@ class BittorrentAPI:
                 None, lambda: client.torrents_files(torrent_hash=torrent_hash)
             )
             enabled_files = [f for f in files if getattr(f, "priority", 1) > 0]
+
+            # Relink individual files as soon as they finish.
+            if on_file_complete:
+                for f in enabled_files:
+                    if f.progress >= 1.0 and f.index not in completed_indices:
+                        completed_indices.add(f.index)
+                        await loop.run_in_executor(None, on_file_complete, f.index)
 
             if enabled_files:
                 if all(f.progress >= 1.0 for f in enabled_files):
