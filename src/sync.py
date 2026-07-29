@@ -433,16 +433,21 @@ class TorrentSyncService:
         )
 
         original_files = request.local_info.original_file_path.split(";")
-        season_qbt_indices: list[int] = []
+        symlink_paths = request.local_info.symlink_path.split(";")
+
+        # Map qBittorrent file index → semicolon-list position so each episode can
+        # be relinked individually the moment it finishes, without waiting for the
+        # whole season.
+        qbt_index_to_position: dict[int, int] = {}
         for pos in season_positions:
             if pos >= len(original_files):
                 continue
             original_file = original_files[pos].strip()
             qbt_index = self._find_qbt_file_index(torrent_files, original_file)
             if qbt_index is not None:
-                season_qbt_indices.append(qbt_index)
+                qbt_index_to_position.setdefault(qbt_index, pos)
 
-        season_qbt_indices = list(dict.fromkeys(season_qbt_indices))
+        season_qbt_indices = list(qbt_index_to_position.keys())
 
         if not season_qbt_indices:
             self.logger.error("Could not resolve season files in torrent for phase 2")
@@ -456,8 +461,21 @@ class TorrentSyncService:
         # Throttle to 160 Mbps
         await self.bittorrent.set_download_limit(torrent_hash, SPEED_160_MBPS)
 
+        save_path = await self.bittorrent.get_save_path(torrent_hash)
+
+        def _relink_completed_file(qbt_index: int) -> None:
+            if not save_path:
+                return
+            pos = qbt_index_to_position.get(qbt_index)
+            if pos is None or pos >= len(original_files) or pos >= len(symlink_paths):
+                return
+            self._update_single_symlink(
+                save_path, original_files[pos].strip(), symlink_paths[pos].strip(),
+            )
+            self.logger.info("Episode ready mid-season, refreshing Jellyfin")
+            self._refresh_jellyfin_playback_scope(request)
+
         # Wait for target season files to complete
-        symlink_paths = request.local_info.symlink_path.split(";")
         season_symlinks = [symlink_paths[pos].strip() for pos in season_positions if pos < len(symlink_paths)]
         completed = await self.bittorrent.wait_for_files_complete(
             torrent_hash,
@@ -465,10 +483,10 @@ class TorrentSyncService:
             symlink_paths=season_symlinks,
             interrupt_event=interrupt_event,
             on_placeholder_updated=lambda: self._refresh_jellyfin_items([request.jellyfin_item_id]),
+            on_file_complete=_relink_completed_file,
         )
 
         if completed:
-            save_path = await self.bittorrent.get_save_path(torrent_hash)
             if save_path:
                 self._update_selected_symlinks(request.local_info, save_path, season_positions)
             self.logger.info("Season download complete")
@@ -533,11 +551,41 @@ class TorrentSyncService:
             await self.bittorrent.set_download_limit(torrent_hash, SPEED_20_MBPS)
 
             symlink_paths = season_local_info.symlink_path.split(";")
+            season_original_files = season_local_info.original_file_path.split(";")
+
+            # Map qBittorrent file index → position for incremental relinking.
+            season_index_to_position: dict[int, int] = {}
+            for pos, original_file in enumerate(season_original_files):
+                qbt_index = self._find_qbt_file_index(torrent_files, original_file.strip())
+                if qbt_index is not None:
+                    season_index_to_position.setdefault(qbt_index, pos)
+
+            save_path = await self.bittorrent.get_save_path(torrent_hash)
+
+            def _relink_completed_file(
+                qbt_index: int,
+                save_path: str = save_path,
+                original_files: list[str] = season_original_files,
+                symlinks: list[str] = symlink_paths,
+                index_map: dict[int, int] = season_index_to_position,
+            ) -> None:
+                if not save_path:
+                    return
+                pos = index_map.get(qbt_index)
+                if pos is None or pos >= len(original_files) or pos >= len(symlinks):
+                    return
+                self._update_single_symlink(
+                    save_path, original_files[pos].strip(), symlinks[pos].strip(),
+                )
+                self.logger.info("Episode ready mid-season, refreshing Jellyfin")
+                self._refresh_jellyfin_playback_scope(request)
+
             completed = await self.bittorrent.wait_for_torrent_complete(
                 torrent_hash,
                 symlink_paths=symlink_paths,
                 interrupt_event=interrupt_event,
                 on_placeholder_updated=lambda: self._refresh_jellyfin_items([request.jellyfin_item_id]),
+                on_file_complete=_relink_completed_file,
             )
 
             if completed:

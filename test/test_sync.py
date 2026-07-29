@@ -804,6 +804,7 @@ class TestPhaseSeason:
         svc.bittorrent.set_file_priorities = AsyncMock()
         svc.bittorrent.set_download_limit = AsyncMock()
         svc.bittorrent.wait_for_files_complete = AsyncMock(return_value=False)
+        svc.bittorrent.get_save_path = AsyncMock(return_value="")
         svc.jellyfin.refresh_item = MagicMock()
 
         result = asyncio.run(svc._phase_season(request))
@@ -844,6 +845,40 @@ class TestPhaseSeason:
 
         assert result is True
         svc._update_selected_symlinks.assert_called_once_with(request.local_info, "/downloads", [0, 1])
+
+    def test_relinks_each_episode_as_it_completes(self, fake_config, repos):
+        svc = _make_service(fake_config)
+        request = _make_show_request(fake_config, repos, n_episodes=3, played_index=0)
+
+        svc.bittorrent.add_torrent = AsyncMock(return_value="h")
+        svc.bittorrent.get_torrent_files = AsyncMock(return_value=[
+            {"name": "S/E01.mkv", "index": 0, "size": 1, "progress": 0, "priority": 1},
+            {"name": "S/E02.mkv", "index": 1, "size": 1, "progress": 0, "priority": 1},
+            {"name": "S/E03.mkv", "index": 2, "size": 1, "progress": 0, "priority": 1},
+        ])
+        svc.bittorrent.set_file_priorities = AsyncMock()
+        svc.bittorrent.set_download_limit = AsyncMock()
+        svc.bittorrent.get_save_path = AsyncMock(return_value="/downloads")
+        svc._update_single_symlink = MagicMock()
+        svc._update_selected_symlinks = MagicMock()
+        svc._refresh_jellyfin_playback_scope = MagicMock()
+
+        async def fake_wait(torrent_hash, indices, **kwargs):
+            # Simulate episode index 1 finishing before the rest of the season.
+            kwargs["on_file_complete"](1)
+            return True
+
+        svc.bittorrent.wait_for_files_complete = AsyncMock(side_effect=fake_wait)
+
+        result = asyncio.run(svc._phase_season(request))
+
+        assert result is True
+        # The finished episode was relinked immediately, without waiting for the
+        # whole season, and Jellyfin was refreshed for it.
+        svc._update_single_symlink.assert_called_once_with(
+            "/downloads", "S/E02.mkv", "/media/series/X/Season 1/E02.mkv",
+        )
+        svc._refresh_jellyfin_playback_scope.assert_called()
 
 
 # ═════════════════════════════════════════════════════════════════════════════
