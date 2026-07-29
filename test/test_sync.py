@@ -542,7 +542,7 @@ class TestRefreshHelpers:
 
         assert [c.args[0] for c in svc.jellyfin.refresh_item.call_args_list] == ["ep-1", "season-1", "series-1"]
 
-    def test_show_new_episode_sets_interrupt_when_already_downloading(self, fake_config, repos):
+    def test_show_new_episode_ignored_when_already_downloading(self, fake_config, repos):
         svc = _make_service(fake_config)
         torrent = _save_show_torrent(repos, imdb="tt7000002", torrent_id=7002)
         repos.show_season.save(
@@ -555,20 +555,9 @@ class TestRefreshHelpers:
                         "/media/series/x [imdbid-tt7000002]/Season 1/E02.mkv",
         )
 
-        # Simulate an active request for the same show.
-        current_request = MediaDownloadRequest(
-            imdb_id="tt7000002",
-            played_path="/old.mkv",
-            jellyfin_item_id="old",
-            torrent=torrent,
-            local_info=LocalFileInformation(),
-            episode_file_index=0,
-        )
-        interrupt_event = asyncio.Event()
-        svc._show_current_requests["tt7000002"] = current_request
-        svc._show_interrupt_events["tt7000002"] = interrupt_event
+        # Simulate an active download for the same show.
+        svc._active_show_imdb_ids.add("tt7000002")
 
-        assert not interrupt_event.is_set()
         item = {
             "NowPlayingItem": {
                 "Path": "/media/series/x [imdbid-tt7000002]/Season 1/E02.mkv",
@@ -576,10 +565,9 @@ class TestRefreshHelpers:
             },
         }
         asyncio.run(svc._process_played_item(item))
-        assert interrupt_event.is_set()
+        # New episode click is ignored: nothing queued, key tracked for cleanup.
         assert svc._media_download_queue.empty()
-        pending = svc._pending_show_requests["tt7000002"]
-        assert pending.episode_file_index == 1
+        assert ("jf-ep2", 1) in svc._show_download_inflight_keys["tt7000002"]
 
     def test_show_new_episode_for_different_show_runs_in_parallel(self, fake_config, repos):
         svc = _make_service(fake_config)
@@ -594,16 +582,8 @@ class TestRefreshHelpers:
             symlink_path="/media/series/o [imdbid-tt8000002]/Season 1/E01.mkv",
         )
 
-        interrupt_event = asyncio.Event()
-        svc._show_current_requests["tt8000001"] = MediaDownloadRequest(
-            imdb_id="tt8000001",
-            played_path="/cur.mkv",
-            jellyfin_item_id="cur",
-            torrent=current_t,
-            local_info=LocalFileInformation(),
-            episode_file_index=0,
-        )
-        svc._show_interrupt_events["tt8000001"] = interrupt_event
+        # A different show is already downloading.
+        svc._active_show_imdb_ids.add("tt8000001")
 
         item = {
             "NowPlayingItem": {
@@ -612,7 +592,6 @@ class TestRefreshHelpers:
             },
         }
         asyncio.run(svc._process_played_item(item))
-        assert not interrupt_event.is_set()
         assert svc._media_download_queue.qsize() == 1
 
     def test_ignores_when_local_info_missing(self, fake_config, repos):

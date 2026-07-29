@@ -56,8 +56,8 @@ class TorrentSyncService:
             2. Rest of season → 160 Mbps
             3. Rest of show (other seasons) → 20 Mbps
 
-    If a new episode is selected during season/show download, it interrupts and
-    prioritizes the new episode at full speed.
+    While a show download is in progress, clicks on other episodes of the same
+    show are ignored until the current download finishes.
     """
 
     def __init__(self, config: Configuration) -> None:
@@ -71,9 +71,10 @@ class TorrentSyncService:
         self._inflight_keys: set[tuple[str, int]] = set()
         self._media_download_queue: asyncio.Queue[MediaDownloadRequest] = asyncio.Queue()
         self._active_download_tasks: set[asyncio.Task[None]] = set()
-        self._show_interrupt_events: dict[str, asyncio.Event] = {}
-        self._show_current_requests: dict[str, MediaDownloadRequest] = {}
-        self._pending_show_requests: dict[str, MediaDownloadRequest] = {}
+        # IMDb IDs of shows with a download currently queued or in progress.
+        self._active_show_imdb_ids: set[str] = set()
+        # Inflight keys registered per show, cleared when its download finishes.
+        self._show_download_inflight_keys: dict[str, set[tuple[str, int]]] = {}
 
     # ── Jellyfin polling task ─────────────────────────────────────────────────
 
@@ -158,19 +159,16 @@ class TorrentSyncService:
         self._inflight_keys.add(key)
 
         if torrent.is_show:
-            current = self._show_current_requests.get(imdb_id)
-            if current is not None:
-                current_key = (current.jellyfin_item_id, current.episode_file_index)
-                if current_key != key:
-                    previous_pending = self._pending_show_requests.get(imdb_id)
-                    if previous_pending is not None:
-                        self._inflight_keys.discard(
-                            (previous_pending.jellyfin_item_id, previous_pending.episode_file_index),
-                        )
-                    self._pending_show_requests[imdb_id] = request
-                    self.logger.info("New episode requested for %s — interrupting current show download", imdb_id)
-                    self._show_interrupt_events[imdb_id].set()
-                    return
+            if imdb_id in self._active_show_imdb_ids:
+                # A download for this show is already in progress. Ignore clicks on
+                # other episodes so the in-progress download finishes uninterrupted.
+                self._show_download_inflight_keys.setdefault(imdb_id, set()).add(key)
+                self.logger.info(
+                    "Show %s already downloading — ignoring new episode request", imdb_id,
+                )
+                return
+            self._active_show_imdb_ids.add(imdb_id)
+            self._show_download_inflight_keys.setdefault(imdb_id, set()).add(key)
 
         await self._media_download_queue.put(request)
 
@@ -307,21 +305,14 @@ class TorrentSyncService:
 
     async def _execute_show_request(self, request: MediaDownloadRequest) -> None:
         imdb_id = request.imdb_id
-        interrupt_event = asyncio.Event()
-        self._show_current_requests[imdb_id] = request
-        self._show_interrupt_events[imdb_id] = interrupt_event
 
         try:
-            await self._handle_show_download(request, interrupt_event)
+            await self._handle_show_download(request)
         finally:
-            current = self._show_current_requests.get(imdb_id)
-            if current is request:
-                self._show_current_requests.pop(imdb_id, None)
-                self._show_interrupt_events.pop(imdb_id, None)
-
-            pending = self._pending_show_requests.pop(imdb_id, None)
-            if pending is not None:
-                await self._media_download_queue.put(pending)
+            self._active_show_imdb_ids.discard(imdb_id)
+            ignored_keys = self._show_download_inflight_keys.pop(imdb_id, set())
+            for ignored_key in ignored_keys:
+                self._inflight_keys.discard(ignored_key)
 
     # ── Movie download (simple, no prioritization) ────────────────────────────
 
