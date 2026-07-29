@@ -593,7 +593,7 @@ class FileProcessingUtils:
             "external_source": "imdb_id"
         }
 
-        response = requests.get(url, params=params, timeout=10)
+        response = requests.get(url, params=params, timeout=120)
         data = response.json()
 
         # Check movies first, then TV shows
