@@ -542,7 +542,7 @@ class TestRefreshHelpers:
 
         assert [c.args[0] for c in svc.jellyfin.refresh_item.call_args_list] == ["ep-1", "season-1", "series-1"]
 
-    def test_show_new_episode_ignored_when_already_downloading(self, fake_config, repos):
+    def test_show_new_episode_ignored_when_episode_in_focus(self, fake_config, repos):
         svc = _make_service(fake_config)
         torrent = _save_show_torrent(repos, imdb="tt7000002", torrent_id=7002)
         repos.show_season.save(
@@ -555,8 +555,10 @@ class TestRefreshHelpers:
                         "/media/series/x [imdbid-tt7000002]/Season 1/E02.mkv",
         )
 
-        # Simulate an active download for the same show.
+        # Simulate an active download for the same show with an episode in focus.
         svc._active_show_imdb_ids.add("tt7000002")
+        svc._show_focus_locked["tt7000002"] = True
+        svc._show_interrupt_events["tt7000002"] = asyncio.Event()
 
         item = {
             "NowPlayingItem": {
@@ -565,9 +567,82 @@ class TestRefreshHelpers:
             },
         }
         asyncio.run(svc._process_played_item(item))
-        # New episode click is ignored: nothing queued, key tracked for cleanup.
+        # New episode click is ignored: nothing queued, no preemption, key tracked.
         assert svc._media_download_queue.empty()
+        assert "tt7000002" not in svc._pending_show_requests
+        assert not svc._show_interrupt_events["tt7000002"].is_set()
         assert ("jf-ep2", 1) in svc._show_download_inflight_keys["tt7000002"]
+
+    def test_show_new_episode_refocuses_when_no_episode_in_focus(self, fake_config, repos):
+        svc = _make_service(fake_config)
+        torrent = _save_show_torrent(repos, imdb="tt7000003", torrent_id=7003)
+        repos.show_season.save(
+            ShowSeason(torrent_id=torrent.id, season=1, season_to=1, show_id=99),
+        )
+        symlinks = ";".join(
+            f"/media/series/x [imdbid-tt7000003]/Season 1/E0{i}.mkv" for i in range(1, 7)
+        )
+        _save_local_info(
+            repos, torrent,
+            original_file_path=";".join(f"E0{i}.mkv" for i in range(1, 7)),
+            symlink_path=symlinks,
+        )
+
+        # Show is active (season/show phase) with NO episode in focus.
+        svc._active_show_imdb_ids.add("tt7000003")
+        svc._show_focus_locked["tt7000003"] = False
+        event = asyncio.Event()
+        svc._show_interrupt_events["tt7000003"] = event
+
+        # User clicks episode 4 (index 3).
+        item = {
+            "NowPlayingItem": {
+                "Path": "/media/series/x [imdbid-tt7000003]/Season 1/E04.mkv",
+                "Id": "jf-ep4",
+            },
+        }
+        asyncio.run(svc._process_played_item(item))
+
+        # The current download is preempted and E04 becomes the pending focus.
+        assert event.is_set()
+        assert svc._show_focus_locked["tt7000003"] is True
+        pending = svc._pending_show_requests["tt7000003"]
+        assert pending.episode_file_index == 3
+        # Nothing queued directly — the re-queue happens when the current run aborts.
+        assert svc._media_download_queue.empty()
+
+    def test_show_click_during_refocus_is_ignored(self, fake_config, repos):
+        svc = _make_service(fake_config)
+        torrent = _save_show_torrent(repos, imdb="tt7000004", torrent_id=7004)
+        repos.show_season.save(
+            ShowSeason(torrent_id=torrent.id, season=1, season_to=1, show_id=99),
+        )
+        symlinks = ";".join(
+            f"/media/series/x [imdbid-tt7000004]/Season 1/E0{i}.mkv" for i in range(1, 7)
+        )
+        _save_local_info(
+            repos, torrent,
+            original_file_path=";".join(f"E0{i}.mkv" for i in range(1, 7)),
+            symlink_path=symlinks,
+        )
+
+        svc._active_show_imdb_ids.add("tt7000004")
+        svc._show_focus_locked["tt7000004"] = False
+        svc._show_interrupt_events["tt7000004"] = asyncio.Event()
+
+        base = "/media/series/x [imdbid-tt7000004]/Season 1"
+        asyncio.run(svc._process_played_item(
+            {"NowPlayingItem": {"Path": f"{base}/E04.mkv", "Id": "jf-ep4"}},
+        ))
+        # The first click refocuses on E04 and locks focus. A second click (E05)
+        # now happens "while an episode is in focus" and is therefore ignored.
+        asyncio.run(svc._process_played_item(
+            {"NowPlayingItem": {"Path": f"{base}/E05.mkv", "Id": "jf-ep5"}},
+        ))
+
+        pending = svc._pending_show_requests["tt7000004"]
+        assert pending.episode_file_index == 3  # E04 stays the focus
+        assert svc._show_focus_locked["tt7000004"] is True
 
     def test_show_new_episode_for_different_show_runs_in_parallel(self, fake_config, repos):
         svc = _make_service(fake_config)
@@ -1071,6 +1146,171 @@ class TestHandleShowDownload:
         svc._phase_episode.assert_awaited_once()
         svc._phase_season.assert_awaited_once()
         svc._phase_show.assert_not_called()
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  Focus lifecycle (in-focus lock, refocus/preempt, resume)
+# ═════════════════════════════════════════════════════════════════════════════
+
+class TestFocusLifecycle:
+    def test_focus_locked_during_phase1_and_released_after(self, fake_config, repos):
+        svc = _make_service(fake_config)
+        request = _make_show_request(fake_config, repos, imdb="tt7100200", torrent_id=7200)
+        seen: dict[str, object] = {}
+
+        async def fake_episode(req, ev):
+            seen["phase1"] = svc._show_focus_locked.get(req.imdb_id)
+            return True
+
+        async def fake_season(req, ev):
+            seen["phase2"] = svc._show_focus_locked.get(req.imdb_id)
+            return True
+
+        async def fake_show(req, ev):
+            seen["phase3"] = svc._show_focus_locked.get(req.imdb_id)
+
+        svc._phase_episode = fake_episode
+        svc._phase_season = fake_season
+        svc._phase_show = fake_show
+
+        asyncio.run(svc._handle_show_download(request))
+
+        # Focus is locked while the episode downloads, released for season/show phases.
+        assert seen["phase1"] is True
+        assert seen["phase2"] is False
+        assert seen["phase3"] is False
+
+    def test_execute_show_request_requeues_pending_on_refocus(self, fake_config, repos):
+        svc = _make_service(fake_config)
+        request = _make_show_request(fake_config, repos, imdb="tt7100210", torrent_id=7210)
+        pending = MediaDownloadRequest(
+            imdb_id="tt7100210",
+            played_path="/x",
+            jellyfin_item_id="jf-pending",
+            torrent=request.torrent,
+            local_info=request.local_info,
+            episode_file_index=2,
+        )
+
+        svc._active_show_imdb_ids.add("tt7100210")
+        svc._pending_show_requests["tt7100210"] = pending
+        svc._handle_show_download = AsyncMock(return_value=None)
+
+        asyncio.run(svc._execute_show_request(request))
+
+        # Pending episode is re-queued and the show stays active.
+        assert svc._media_download_queue.qsize() == 1
+        assert "tt7100210" in svc._active_show_imdb_ids
+        assert "tt7100210" not in svc._pending_show_requests
+        requeued = svc._media_download_queue.get_nowait()
+        assert requeued.episode_file_index == 2
+
+    def test_execute_show_request_cleans_up_when_no_pending(self, fake_config, repos):
+        svc = _make_service(fake_config)
+        request = _make_show_request(fake_config, repos, imdb="tt7100220", torrent_id=7220)
+
+        svc._active_show_imdb_ids.add("tt7100220")
+        svc._show_focus_locked["tt7100220"] = False
+        svc._show_active_torrent_hashes["tt7100220"] = {"h"}
+        svc._show_download_inflight_keys["tt7100220"] = {("k", 0)}
+        svc._inflight_keys.add(("k", 0))
+        svc._handle_show_download = AsyncMock(return_value=None)
+
+        asyncio.run(svc._execute_show_request(request))
+
+        assert "tt7100220" not in svc._active_show_imdb_ids
+        assert "tt7100220" not in svc._show_focus_locked
+        assert "tt7100220" not in svc._show_interrupt_events
+        assert "tt7100220" not in svc._show_active_torrent_hashes
+        assert ("k", 0) not in svc._inflight_keys
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  Refocus helpers (stop siblings, reset placeholders)
+# ═════════════════════════════════════════════════════════════════════════════
+
+class TestRefocusHelpers:
+    def test_stop_other_show_torrents_zeroes_sibling_priorities(self, fake_config, repos):
+        svc = _make_service(fake_config)
+        svc._show_active_torrent_hashes["tt1"] = {"keep", "other1", "other2"}
+
+        svc.bittorrent.get_torrent_files = AsyncMock(return_value=[
+            {"name": "a.mkv", "index": 0},
+            {"name": "b.mkv", "index": 1},
+        ])
+        svc.bittorrent.set_file_priorities = AsyncMock()
+
+        asyncio.run(svc._stop_other_show_torrents("tt1", keep_hash="keep"))
+
+        stopped = {c.args[0] for c in svc.bittorrent.set_file_priorities.await_args_list}
+        assert stopped == {"other1", "other2"}
+        for call in svc.bittorrent.set_file_priorities.await_args_list:
+            assert call.args[1] == [0, 1]
+            assert call.args[2] == 0
+
+    def test_reset_placeholders_for_season(self, fake_config, tmp_path):
+        svc = _make_service(fake_config)
+        season_dir = tmp_path / "Season 1"
+        season_dir.mkdir()
+
+        starter = Path(fake_config.placeholder_starter_path)
+        eta = Path(fake_config.placeholder_half_hr_left_path)
+        real_file = tmp_path / "real.mkv"
+        real_file.write_bytes(b"x")
+
+        # E01 focus (index 0), E02 downloading (ETA placeholder), E03 real, E04 base.
+        symlinks = []
+        for i, target in enumerate([starter, eta, real_file, starter]):
+            link = season_dir / f"E0{i+1}.mkv"
+            link.symlink_to(target)
+            symlinks.append(str(link))
+
+        info = LocalFileInformation(
+            torrent_id=1,
+            original_file_path=";".join(f"E0{i+1}.mkv" for i in range(4)),
+            symlink_path=";".join(symlinks),
+        )
+
+        svc._reset_placeholders_for_season(info, focus_index=0)
+
+        # Focus untouched; ETA reset to base; real file kept; base left alone.
+        assert Path(symlinks[0]).readlink() == starter
+        assert Path(symlinks[1]).readlink() == starter
+        assert Path(symlinks[2]).readlink() == real_file
+        assert Path(symlinks[3]).readlink() == starter
+
+    def test_phase_episode_stops_siblings_and_registers_hash(self, fake_config, repos):
+        svc = _make_service(fake_config)
+        request = _make_show_request(fake_config, repos, imdb="tt7100230", torrent_id=7230)
+
+        # A sibling other-season torrent is already downloading for this show.
+        svc._show_active_torrent_hashes["tt7100230"] = {"sibling"}
+
+        torrent_files = [
+            {"name": "S/E01.mkv", "index": 0, "size": 1, "progress": 0, "priority": 1},
+            {"name": "S/E02.mkv", "index": 1, "size": 1, "progress": 0, "priority": 1},
+            {"name": "S/E03.mkv", "index": 2, "size": 1, "progress": 0, "priority": 1},
+        ]
+
+        svc.bittorrent.add_torrent = AsyncMock(return_value="focushash")
+        svc.bittorrent.get_torrent_files = AsyncMock(return_value=torrent_files)
+        svc.bittorrent.set_file_priorities = AsyncMock()
+        svc.bittorrent.set_download_limit = AsyncMock()
+        svc.bittorrent.wait_for_files_complete = AsyncMock(return_value=True)
+        svc.bittorrent.get_save_path = AsyncMock(return_value="")
+        svc.jellyfin.refresh_item = MagicMock()
+
+        asyncio.run(svc._phase_episode(request))
+
+        # Focus torrent hash registered for the show.
+        assert "focushash" in svc._show_active_torrent_hashes["tt7100230"]
+        # Sibling torrent was stopped (all files → priority 0).
+        stopped = [
+            c for c in svc.bittorrent.set_file_priorities.await_args_list
+            if c.args[0] == "sibling"
+        ]
+        assert stopped
+        assert stopped[0].args[2] == 0
 
 
 # ═════════════════════════════════════════════════════════════════════════════

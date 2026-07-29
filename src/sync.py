@@ -56,8 +56,10 @@ class TorrentSyncService:
             2. Rest of season → 160 Mbps
             3. Rest of show (other seasons) → 20 Mbps
 
-    While a show download is in progress, clicks on other episodes of the same
-    show are ignored until the current download finishes.
+    An episode is "in focus" while it downloads at full speed (phase 1). Clicks on
+    other episodes are ignored while an episode is in focus, but once the focused
+    episode has finished (during the season/show phases) a new click preempts the
+    current download and makes the newly clicked episode the focus.
     """
 
     def __init__(self, config: Configuration) -> None:
@@ -75,6 +77,15 @@ class TorrentSyncService:
         self._active_show_imdb_ids: set[str] = set()
         # Inflight keys registered per show, cleared when its download finishes.
         self._show_download_inflight_keys: dict[str, set[tuple[str, int]]] = {}
+        # True while an episode is "in focus" (downloading at full speed in phase 1).
+        # New clicks are ignored while focus is locked, and preempt (refocus) otherwise.
+        self._show_focus_locked: dict[str, bool] = {}
+        # Abort signal per show, set when a new episode preempts the current download.
+        self._show_interrupt_events: dict[str, asyncio.Event] = {}
+        # The newly clicked episode that should take focus once the current run aborts.
+        self._pending_show_requests: dict[str, MediaDownloadRequest] = {}
+        # qBittorrent hashes added for each show, used to stop siblings on refocus.
+        self._show_active_torrent_hashes: dict[str, set[str]] = {}
 
     # ── Jellyfin polling task ─────────────────────────────────────────────────
 
@@ -160,14 +171,41 @@ class TorrentSyncService:
 
         if torrent.is_show:
             if imdb_id in self._active_show_imdb_ids:
-                # A download for this show is already in progress. Ignore clicks on
-                # other episodes so the in-progress download finishes uninterrupted.
                 self._show_download_inflight_keys.setdefault(imdb_id, set()).add(key)
+
+                if self._show_focus_locked.get(imdb_id, False):
+                    # An episode is currently in focus (downloading at full speed).
+                    # Ignore clicks on other episodes until it finishes.
+                    self.logger.info(
+                        "Show %s has an episode in focus — ignoring new episode request",
+                        imdb_id,
+                    )
+                    return
+
+                # No episode in focus (season/show phase): the newly clicked episode
+                # preempts the current download and becomes the new focus.
+                previous_pending = self._pending_show_requests.get(imdb_id)
+                if previous_pending is not None:
+                    prev_key = (
+                        previous_pending.jellyfin_item_id,
+                        previous_pending.episode_file_index,
+                    )
+                    if prev_key != key:
+                        self._inflight_keys.discard(prev_key)
+
+                self._pending_show_requests[imdb_id] = request
+                self._show_focus_locked[imdb_id] = True
                 self.logger.info(
-                    "Show %s already downloading — ignoring new episode request", imdb_id,
+                    "New episode clicked for %s while no episode in focus — refocusing",
+                    imdb_id,
                 )
+                event = self._show_interrupt_events.get(imdb_id)
+                if event is not None:
+                    event.set()
                 return
+
             self._active_show_imdb_ids.add(imdb_id)
+            self._show_focus_locked[imdb_id] = True
             self._show_download_inflight_keys.setdefault(imdb_id, set()).add(key)
 
         await self._media_download_queue.put(request)
@@ -305,14 +343,27 @@ class TorrentSyncService:
 
     async def _execute_show_request(self, request: MediaDownloadRequest) -> None:
         imdb_id = request.imdb_id
+        interrupt_event = asyncio.Event()
+        self._show_interrupt_events[imdb_id] = interrupt_event
 
         try:
-            await self._handle_show_download(request)
+            await self._handle_show_download(request, interrupt_event)
         finally:
-            self._active_show_imdb_ids.discard(imdb_id)
-            ignored_keys = self._show_download_inflight_keys.pop(imdb_id, set())
-            for ignored_key in ignored_keys:
-                self._inflight_keys.discard(ignored_key)
+            pending = self._pending_show_requests.pop(imdb_id, None)
+            if pending is not None:
+                # A new episode was clicked while no episode was in focus — refocus
+                # by re-running the show download for the newly clicked episode. The
+                # show stays "active" so intervening clicks keep being ignored.
+                self.logger.info("Refocusing show %s on newly clicked episode", imdb_id)
+                await self._media_download_queue.put(pending)
+            else:
+                self._active_show_imdb_ids.discard(imdb_id)
+                self._show_focus_locked.pop(imdb_id, None)
+                self._show_interrupt_events.pop(imdb_id, None)
+                self._show_active_torrent_hashes.pop(imdb_id, None)
+                ignored_keys = self._show_download_inflight_keys.pop(imdb_id, set())
+                for ignored_key in ignored_keys:
+                    self._inflight_keys.discard(ignored_key)
 
     # ── Movie download (simple, no prioritization) ────────────────────────────
 
@@ -344,9 +395,15 @@ class TorrentSyncService:
         )
 
         interrupt_event = interrupt_event or asyncio.Event()
+        imdb_id = request.imdb_id
 
-        # Phase 1: Download the selected episode at full speed
+        # Phase 1: Download the selected episode at full speed while it is "in focus".
+        # Focus is locked so clicks on other episodes are ignored until it finishes.
+        self._show_focus_locked[imdb_id] = True
         completed = await self._phase_episode(request, interrupt_event)
+        # Episode downloaded — release focus so a new click can preempt the
+        # season/show phases below.
+        self._show_focus_locked[imdb_id] = False
         if not completed:
             return  # Interrupted, new request will take over
 
@@ -369,6 +426,12 @@ class TorrentSyncService:
         interrupt_event = interrupt_event or asyncio.Event()
 
         torrent_hash = await self.bittorrent.add_torrent(request.local_info.torrent_file_local_path)
+        self._register_show_torrent(request.imdb_id, torrent_hash)
+
+        # Stop any sibling downloads for this show (rest of season, other seasons)
+        # so the focused episode gets all of the bandwidth.
+        await self._stop_other_show_torrents(request.imdb_id, keep_hash=torrent_hash)
+
         torrent_files = await self.bittorrent.get_torrent_files(torrent_hash)
 
         # Match the episode file to the qBittorrent file index
@@ -384,6 +447,10 @@ class TorrentSyncService:
         all_indices = [f["index"] for f in torrent_files]
         await self.bittorrent.set_file_priorities(torrent_hash, all_indices, 0)
         await self.bittorrent.set_file_priorities(torrent_hash, [qbt_file_index], 7)
+
+        # Reset sibling season episodes (still on placeholders) back to the base
+        # placeholder so the UI reflects that only the focused episode is active.
+        self._reset_placeholders_for_season(request.local_info, request.episode_file_index)
 
         # Full speed
         await self.bittorrent.set_download_limit(torrent_hash, SPEED_UNLIMITED)
@@ -425,6 +492,7 @@ class TorrentSyncService:
         interrupt_event = interrupt_event or asyncio.Event()
 
         torrent_hash = await self.bittorrent.add_torrent(request.local_info.torrent_file_local_path)
+        self._register_show_torrent(request.imdb_id, torrent_hash)
         torrent_files = await self.bittorrent.get_torrent_files(torrent_hash)
 
         season_positions = self._get_target_season_positions(
@@ -543,6 +611,7 @@ class TorrentSyncService:
             self.logger.info("Downloading season %d-%d: %s", season.season, season.season_to, season_torrent.title)
 
             torrent_hash = await self.bittorrent.add_torrent(season_local_info.torrent_file_local_path)
+            self._register_show_torrent(request.imdb_id, torrent_hash)
 
             # Enable all files, throttle to 20 Mbps
             torrent_files = await self.bittorrent.get_torrent_files(torrent_hash)
@@ -740,6 +809,49 @@ class TorrentSyncService:
         ]
 
         return positions if positions else [episode_file_index]
+
+    def _register_show_torrent(self, imdb_id: str, torrent_hash: str) -> None:
+        """Track a qBittorrent hash added while downloading a show."""
+        if torrent_hash:
+            self._show_active_torrent_hashes.setdefault(imdb_id, set()).add(torrent_hash)
+
+    async def _stop_other_show_torrents(self, imdb_id: str, keep_hash: str) -> None:
+        """Stop every other active torrent of this show by zeroing its file priorities."""
+        for other_hash in list(self._show_active_torrent_hashes.get(imdb_id, set())):
+            if not other_hash or other_hash == keep_hash:
+                continue
+            files = await self.bittorrent.get_torrent_files(other_hash)
+            indices = [f["index"] for f in files]
+            if indices:
+                await self.bittorrent.set_file_priorities(other_hash, indices, 0)
+                self.logger.info("Stopped sibling torrent %s for show %s", other_hash[:8], imdb_id)
+
+    def _reset_placeholders_for_season(
+        self,
+        local_info: LocalFileInformation,
+        focus_index: int,
+    ) -> None:
+        """Reset non-focused, not-yet-downloaded season episodes to the base placeholder.
+
+        Keeps the focused episode and any already-downloaded episodes untouched, and
+        only rewrites symlinks that currently point at a (non-base) placeholder.
+        """
+        symlink_paths = [p.strip() for p in local_info.symlink_path.split(";")]
+        placeholders_dir = self.config.placeholders_directory
+        starter = self.config.placeholder_starter_path
+
+        for pos in self._get_target_season_positions(local_info, focus_index):
+            if pos == focus_index or pos < 0 or pos >= len(symlink_paths):
+                continue
+            symlink = Path(symlink_paths[pos])
+            if not symlink.is_symlink():
+                continue
+            target = str(symlink.readlink())
+            if placeholders_dir not in target or target == starter:
+                continue  # real file or already the base placeholder
+            symlink.unlink()
+            symlink.symlink_to(starter)
+            self.logger.info("Reset placeholder for %s", symlink)
 
     def _refresh_jellyfin_items(self, item_ids: list[Optional[str]]) -> None:
         """Refresh one or more Jellyfin items, deduplicated and in-order."""
