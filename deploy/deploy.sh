@@ -2,7 +2,7 @@
 set -e
 
 IMAGE="ghcr.io/szucsik/jellyfin-media-server-app"
-TAG="0.0.6-TEST"
+TAG="1.0.0"
 
 # Remove the existing local image if it exists
 if docker image inspect "$IMAGE:$TAG" >/dev/null 2>&1; then
