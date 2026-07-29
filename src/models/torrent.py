@@ -25,3 +25,4 @@ class Torrent(SQLModel, table=True):
     download_link: str = ""
     seeders_number: int = -1
     leechers_number: int = -1
+    language: str = "HUN"

@@ -5,6 +5,7 @@ import logging
 from difflib import SequenceMatcher
 
 from collections import Counter
+from typing import Any
 
 from selenium import webdriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -62,20 +63,21 @@ class Scraper:
             self.logger.info("Not logged in. Execute log in section.")
             self.login()
 
-        for page in range(1, max_pages + 1):
-            self.logger.info("Navigate to page %s. is_show=%s", page, is_show)
-            url = self._get_url(page=page, is_show=is_show, is_hd=is_hd)
-            self.__navigate(url)
+        for language in self.config.Languages:
+            for page in range(1, max_pages + 1):
+                self.logger.info("Navigate to page %s. is_show=%s", page, is_show)
+                url = self._get_url(page=page, is_show=is_show, is_hd=is_hd, language=language)
+                self.__navigate(url)
 
-            # Stop if the "no results" indicator is absent (i.e., results exist)
-            not_found_text_count = len(self.driver.find_elements(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.TEXT_NOT_FOUND_LIST))
-            if not_found_text_count > 0:
-                self.logger.warning("Not found text detected. Breaking. Text found: %s", not_found_text_count)
-                break
+                # Stop if the "no results" indicator is absent (i.e., results exist)
+                not_found_text_count = len(self.driver.find_elements(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.TEXT_NOT_FOUND_LIST))
+                if not_found_text_count > 0:
+                    self.logger.warning("Not found text detected. Breaking. Text found: %s", not_found_text_count)
+                    break
 
-            self.logger.info("Save data to database.")
-            category = "HD" if is_hd else "SD"
-            self.torrent_repository.save_new_only(self._get_torrent_data_from_page(is_show=is_show,category=category, is_hd=is_hd))
+                self.logger.info("Save data to database.")
+                category = "HD" if is_hd else "SD"
+                self.torrent_repository.save_new_only(self._get_torrent_data_from_page(is_show=is_show,category=category, is_hd=is_hd, language=language))
 
     def close(self) -> None:
         """Clean up resources (e.g., close the WebDriver)."""
@@ -86,19 +88,14 @@ class Scraper:
     # Navigation helpers
     # -------------------------------------------------------------------------
 
-    def _get_url(self, page: int, is_show: bool, is_hd: bool):
+    def _get_url(self, page: int, is_show: bool, is_hd: bool, language: Any):
         """Get urls for different torrent scopes"""
         if is_show:
-            if is_hd:
-                return self.config.get_browse_hd_shows_url(page)
-            else:
-                return self.config.get_browser_sd_shows_url(page)
+            media_type = self.config.MediaTypeTags.HD_SHOW if is_hd else self.config.MediaTypeTags.SD_SHOW
         else:
-            if is_hd:
-                return self.config.get_browse_hd_movies_url(page)
-            else:
-                return self.config.get_browser_sd_movies_url(page)
+            media_type = self.config.MediaTypeTags.HD_MOVIE if is_hd else self.config.MediaTypeTags.SD_MOVIE
 
+        return self.config.get_browse_url(page=page, type=media_type, lang=language)
 
     def _open_login_page(self) -> None:
         """Navigate to the login page, retrying until all form elements are present."""
@@ -123,13 +120,13 @@ class Scraper:
     # Torrent data extraction
     # -------------------------------------------------------------------------
 
-    def _get_torrent_data_from_page(self, is_show: bool, is_hd: bool, category: str) -> list[Torrent]:
+    def _get_torrent_data_from_page(self, is_show: bool, is_hd: bool, category: str, language: Any) -> list[Torrent]:
         """
         Extract raw torrent data (IMDB links, titles, detail links) from the current page.
         `page` is accepted for future use (e.g., logging) but not used directly.
         """
         self.logger.info("Generate empty list of torrents for the page.")
-        torrents = self._generate_torrent_stubs(is_show=is_show, category=category)
+        torrents = self._generate_torrent_stubs(is_show=is_show, category=category, language=language)
 
         self.logger.info("Extractiong the text divs from the page.")
         torrent_divs = self._get_torrent_text_divs()
@@ -146,7 +143,7 @@ class Scraper:
         """Extract the raw text divs that contain torrent information."""
         return self.driver.find_elements(By.CSS_SELECTOR, self.selectors.CssSelectors.BrowsePage.TORRENT_TEXT_DIV)
 
-    def _generate_torrent_stubs(self, is_show: bool, category: str) -> list[Torrent]:
+    def _generate_torrent_stubs(self, is_show: bool, category: str, language: Any) -> list[Torrent]:
         """Create one blank Torrent stub per IMDB link found on the current page."""
         count = len(self.driver.find_elements(
             By.CSS_SELECTOR,
@@ -158,6 +155,7 @@ class Scraper:
             torrent = Torrent()
             torrent.is_show = is_show
             torrent.category = category
+            torrent.language = "HUN" if language == self.config.Languages.HUN else "ENG"
 
             torrents.append(torrent)
 
