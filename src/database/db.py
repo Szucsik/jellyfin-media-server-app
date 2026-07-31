@@ -1,15 +1,20 @@
 from contextlib import contextmanager
+from datetime import datetime
+import logging
 from typing import Generator, Optional, Type, TypeVar
 
 from sqlmodel import Session, SQLModel, create_engine, select
-from sqlalchemy import exists, or_
+from sqlalchemy import exists, func, or_
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from models.local_file_information import LocalFileInformation
 from models.movie import Movie
 from models.show import Show
 from models.show_season import ShowSeason
+from models.subtitle_download import SubtitleDownload
 from models.torrent import Torrent
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=SQLModel)
 
@@ -237,6 +242,37 @@ class TorrentRepository(BaseRepository):
                 session.expunge(record)
             return list(records)
 
+    def find_movies_by_language(self, language: str) -> list[Torrent]:
+        """Return every torrent linked to a Movie whose language matches."""
+        with get_session(self.engine) as session:
+            statement = (
+                select(self.model)
+                .where(self.model.language == language)
+                .where(exists().where(Movie.torrent_id == self.model.id))
+            )
+            records = session.exec(statement).all()
+            for record in records:
+                session.expunge(record)
+            logger.debug("find_movies_by_language(%s) -> %d torrent(s)", language, len(records))
+            return list(records)
+
+    def find_show_seasons_by_language(self, language: str) -> list[tuple[Torrent, ShowSeason]]:
+        """Return (torrent, show_season) pairs for every show-season torrent whose language matches."""
+        with get_session(self.engine) as session:
+            statement = (
+                select(self.model, ShowSeason)
+                .join(ShowSeason, ShowSeason.torrent_id == self.model.id)
+                .where(self.model.language == language)
+            )
+            results = session.exec(statement).all()
+            pairs: list[tuple[Torrent, ShowSeason]] = []
+            for torrent, season in results:
+                session.expunge(torrent)
+                session.expunge(season)
+                pairs.append((torrent, season))
+            logger.debug("find_show_seasons_by_language(%s) -> %d pair(s)", language, len(pairs))
+            return pairs
+
 class MovieRepository(BaseRepository):
     """Movie-specific queries on top of the generic CRUD layer."""
 
@@ -306,3 +342,59 @@ class LocalFilesRepository(BaseRepository):
                 .on_conflict_do_nothing(index_elements=["torrent_id"])
             )
             session.exec(stmt)
+
+
+class SubtitleDownloadRepository(BaseRepository):
+    """Tracks per-item subtitle downloads and enforces the per-day limit."""
+
+    def __init__(self, engine=None) -> None:
+        super().__init__(SubtitleDownload, engine)
+
+    def get_by_item_id(self, jellyfin_item_id: str) -> Optional[SubtitleDownload]:
+        """Return the tracking row for a Jellyfin item, or None."""
+        return self.find_first_by(jellyfin_item_id=jellyfin_item_id)
+
+    def upsert(self, record: SubtitleDownload) -> SubtitleDownload:
+        """Insert or update the tracking row keyed by jellyfin_item_id."""
+        with get_session(self.engine) as session:
+            existing = session.exec(
+                select(SubtitleDownload).where(
+                    SubtitleDownload.jellyfin_item_id == record.jellyfin_item_id
+                )
+            ).first()
+            if existing:
+                existing.imdb_id = record.imdb_id
+                existing.name = record.name
+                existing.language = record.language
+                existing.status = record.status
+                existing.downloaded_at = record.downloaded_at
+                existing.torrent_id = record.torrent_id
+                session.add(existing)
+                session.flush()
+                session.refresh(existing)
+                session.expunge(existing)
+                logger.debug(
+                    "Updated subtitle row for item %s (status=%s)",
+                    record.jellyfin_item_id, record.status,
+                )
+                return existing
+            session.add(record)
+            session.flush()
+            session.refresh(record)
+            session.expunge(record)
+            logger.debug(
+                "Inserted subtitle row for item %s (status=%s)",
+                record.jellyfin_item_id, record.status,
+            )
+            return record
+
+    def count_downloaded_since(self, since: datetime) -> int:
+        """Count subtitles downloaded (status == 'downloaded') at or after `since`."""
+        with get_session(self.engine) as session:
+            statement = select(func.count()).select_from(SubtitleDownload).where(
+                SubtitleDownload.status == "downloaded",
+                SubtitleDownload.downloaded_at >= since,
+            )
+            count = int(session.exec(statement).one())
+            logger.debug("count_downloaded_since(%s) -> %d", since.isoformat(), count)
+            return count

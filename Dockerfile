@@ -16,6 +16,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ .
 
-EXPOSE 8800 8801
+EXPOSE 8800 8801 8802
 
 CMD ["python", "run.py"]

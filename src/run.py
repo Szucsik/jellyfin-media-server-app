@@ -18,18 +18,27 @@ def run_sync_api() -> None:
     uvicorn.run("sync_api:app", host="0.0.0.0", port=8801)
 
 
+def run_subtitle_api() -> None:
+    """Run Subtitle Update API"""
+    uvicorn.run("subtitle_api:app", host="0.0.0.0", port=8802)
+
+
 if __name__ == "__main__":
     init_db()
 
     parsing = multiprocessing.Process(target=run_parsing_api, daemon=True)
     sync = multiprocessing.Process(target=run_sync_api, daemon=True)
+    subtitles = multiprocessing.Process(target=run_subtitle_api, daemon=True)
 
     parsing.start()
     sync.start()
+    subtitles.start()
 
     try:
         parsing.join()
         sync.join()
+        subtitles.join()
     except KeyboardInterrupt:
         parsing.terminate()
         sync.terminate()
+        subtitles.terminate()

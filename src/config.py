@@ -1,7 +1,14 @@
 import logging
 import os
 
-from database.db import LocalFilesRepository, MovieRepository, ShowRepository, ShowSeasonsRepository, TorrentRepository
+from database.db import (
+    LocalFilesRepository,
+    MovieRepository,
+    ShowRepository,
+    ShowSeasonsRepository,
+    SubtitleDownloadRepository,
+    TorrentRepository,
+)
 
 
 class LineCappedFileHandler(logging.FileHandler):
@@ -23,9 +30,13 @@ class LineCappedFileHandler(logging.FileHandler):
 class Configuration:
     """Configuration class for environment variables and logging."""
 
+    # Log level is configurable via the LOG_LEVEL env var (e.g. DEBUG, INFO,
+    # WARNING). Defaults to INFO; falls back to INFO for unknown values.
+    _log_level = getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO)
+
     # Init logger: keep only the latest 1000 lines in run.log.
     logging.basicConfig(
-        level=logging.INFO,
+        level=_log_level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
         handlers=[
@@ -46,6 +57,15 @@ class Configuration:
     show_season_repository = ShowSeasonsRepository()
     show_repository = ShowRepository()
     local_files_repository = LocalFilesRepository()
+    subtitle_download_repository = SubtitleDownloadRepository()
+
+    # Subtitle settings
+    # Media language (in the torrent table) considered eligible for subtitle download.
+    subtitle_source_language: str = "ENG"
+    # ISO 639-2 code of the subtitle to fetch from the Open Subtitles plugin.
+    subtitle_target_language: str = "hun"
+    # Maximum number of subtitle downloads allowed within a rolling 24h window.
+    subtitle_daily_limit: int = 1000
 
     # Scan type
 

@@ -62,10 +62,10 @@ When you press play on an episode of a multi-episode torrent, the sync service r
 | Phase | What gets downloaded                       | Speed limit          |
 |-------|--------------------------------------------|----------------------|
 | 1     | Just the episode you clicked               | ⚡ Unlimited          |
-| 2     | The rest of that season                    | 🚗 20 Mbit/s         |
-| 3     | Every other season of the same show        | 🐢 5 Mbit/s          |
+| 2     | The rest of that season                    | 🚗 160 Mbit/s        |
+| 3     | Every other season of the same show        | 🐢 20 Mbit/s         |
 
-If you start playing a *different* episode mid-download, the in-progress phase is interrupted and the new episode jumps straight back to phase 1 at full speed.
+Each episode is relinked to its real file individually as soon as it finishes downloading, and Jellyfin is refreshed for that item. If you start playing a *different* episode mid-download, the in-progress phase is interrupted and the new episode jumps straight back to phase 1 at full speed.
 
 ### Placeholders that tell you how long to wait
 
@@ -96,13 +96,19 @@ So the user opening Jellyfin sees a video that literally tells them roughly how 
 
    This launches `media-server-app` and a `jellyfin` container side by side. **qBittorrent is not included** — point `QBITTORRENT_HOST/PORT` at an existing instance that has access to your downloads volume.
 
-5. Trigger the catalogue build (this takes hours — fire and forget, watch `run.log`):
+5. Trigger the **initial catalogue build** — scrapes the entire ncore catalogue (this takes hours — fire and forget, watch `run.log`):
+
+   ```bash
+   curl -X POST 'http://localhost:8800/full-parsing'
+   ```
+
+   For a quicker **incremental refresh** afterwards, scrape only the first `N` pages of each bucket:
 
    ```bash
    curl -X POST 'http://localhost:8800/parsing?pages=50'
    ```
 
-6. Start the play-to-download sync loop:
+6. The sync loop **auto-starts ~30 seconds after the container boots**. You can also toggle it manually:
 
    ```bash
    curl -X POST 'http://localhost:8801/sync?enabled=true'
@@ -138,10 +144,11 @@ You'll need **Firefox + geckodriver** on your `PATH` for the Selenium scraper (t
 
 | Method | Endpoint                                | Purpose                                                           |
 |--------|-----------------------------------------|-------------------------------------------------------------------|
-| POST   | `http://localhost:8800/parsing?pages=N` | Scrape `N` pages of each (movie\|show)×(HD\|SD) bucket and build placeholders. |
+| POST   | `http://localhost:8800/full-parsing`    | Full scrape of every (movie\|show)×(HD\|SD) bucket (all pages), then build placeholders. Use for the first catalogue build. |
+| POST   | `http://localhost:8800/parsing?pages=N` | Incremental **refresh** scrape of the first `N` pages of each bucket, then build placeholders. |
 | POST   | `http://localhost:8800/processing`      | Re-run only the dedup + symlink stage (no scraping).              |
-| POST   | `http://localhost:8800/download-torrent`| Re-download missing `.torrent` files for items already in the DB. |
-| POST   | `http://localhost:8801/sync?enabled=true`  | Start the Jellyfin → qBittorrent sync loop.                    |
+| POST   | `http://localhost:8800/download-torrent`| Re-run the `.torrent` download + symlink stage for items already in the DB. |
+| POST   | `http://localhost:8801/sync?enabled=true`  | Start the Jellyfin → qBittorrent sync loop (also auto-starts ~30 s after boot). |
 | POST   | `http://localhost:8801/sync?enabled=false` | Stop the sync loop.                                            |
 
 ---

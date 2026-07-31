@@ -6,6 +6,7 @@ services:
     ports:
       - 8800:8800
       - 8801:8801
+      - 8802:8802
     volumes:
       - type: bind
         source: ${VOLUME_MOVIE_DIR}
@@ -47,6 +48,7 @@ services:
       - QBITTORRENT_PORT=${QBITTORRENT_PORT}
       - QBITTORRENT_USERNAME=${QBITTORRENT_USERNAME}
       - QBITTORRENT_PASSWORD=${QBITTORRENT_PASSWORD}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     depends_on:
       - jellyfin
     restart: unless-stopped
