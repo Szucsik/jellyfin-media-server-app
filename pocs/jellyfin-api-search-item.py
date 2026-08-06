@@ -6,7 +6,7 @@ API_KEY = SoPConfig.JELLYFIN_API_KEY
 USER_ID = SoPConfig.JELLYFIN_USER
 
 params = {
-    "SearchTerm": "HAPPY!",
+    "SearchTerm": "Kardashians",
     "IncludeItemTypes": "Movie,Series",
     "Recursive": "true",
     "UserId": USER_ID,

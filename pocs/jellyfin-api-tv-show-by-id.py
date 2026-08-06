@@ -11,7 +11,7 @@ JELLYFIN_URL = SoPConfig.JELLYFIN_URL
 JELLYFIN_API_KEY = SoPConfig.JELLYFIN_API_KEY
 USER_ID = SoPConfig.JELLYFIN_USER
 
-SERIES_ID = "5e5a1334b8c4d5c274acf156981c6f31"
+SERIES_ID = "ff302adb9a8609762504269fb1601eba"
 
 
 # ============================================================

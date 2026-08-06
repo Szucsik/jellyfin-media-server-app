@@ -11,7 +11,7 @@ JELLYFIN_URL = SoPConfig.JELLYFIN_URL
 JELLYFIN_API_KEY = SoPConfig.JELLYFIN_API_KEY
 USER_ID = SoPConfig.JELLYFIN_USER
 
-EPISODE_ID = "ca11517094918867818e8d7125bbd112"
+EPISODE_ID = "fe8dec696b8473fcd9bb0891559c05af"
 
 
 # ============================================================
