@@ -218,4 +218,7 @@ class DataProcessing:
                     season_to=-1,
                     show_id=show_id,
                 )
-                self.config.show_season_repository.save(selected)
+
+                existing = self.config.show_season_repository.find_first_by(torrent_id=torrent.id, season=season)
+                if not existing:
+                    self.config.show_season_repository.save(selected)
