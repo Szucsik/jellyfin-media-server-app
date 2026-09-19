@@ -7,6 +7,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from config import Configuration
+
 
 # ── data classes ──────────────────────────────────────────────────────────────
 
@@ -57,9 +59,10 @@ QUALITY_RE = re.compile(
 
 class FileProcessingUtils:
 
-    def __init__(self):
-        pass
-
+    def __init__(self, config: Configuration):
+        self.config = config
+        self.logger = config.get_logger(__name__)
+        
     # ── existing helpers ──────────────────────────────────────────────────────
 
     def is_sample(self, path_parts: list[str]) -> bool:
@@ -506,8 +509,15 @@ class FileProcessingUtils:
             ext = Path(filename).suffix.lower()
 
             if ext not in VIDEO_EXTS:
+                self.logger.info(f"File path excluded because of missing video extension. Path={filename}")
                 continue
-            if self.is_sample(path_parts) or self.is_excluded_show_directory(path_parts):
+
+            if self.is_sample(path_parts):
+                self.logger.info(f"File path excluded because it is marked as a sample. Path={filename}")
+                continue
+
+            if self.is_excluded_show_directory(path_parts):
+                self.logger.info(f"File path excluded because it is in an excluded direcetory. Path={filename}")
                 continue
 
             # Use folder name when available; fall back to filename-level parsing

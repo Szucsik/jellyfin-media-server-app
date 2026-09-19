@@ -74,18 +74,6 @@ class TestBaseRepository:
         )
         assert len(repos.torrent.get_all()) == 3
 
-    def test_upsert_many_inserts_new(self, repos):
-        repos.torrent.upsert_many(
-            [Torrent(torrent_id=10, title="new")],
-        )
-        assert repos.torrent.find_first_by(torrent_id=10).title == "new"
-
-    def test_upsert_many_updates_existing(self, repos):
-        existing = repos.torrent.save(Torrent(torrent_id=10, title="old"))
-        existing.title = "updated"
-        repos.torrent.upsert_many([existing])
-        assert repos.torrent.get(existing.id).title == "updated"
-
     def test_delete(self, repos):
         t = repos.torrent.save(Torrent(torrent_id=1, title="x"))
         repos.torrent.delete(t)

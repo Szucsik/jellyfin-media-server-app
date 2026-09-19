@@ -131,20 +131,7 @@ class BaseRepository:
         """Bulk insert — efficient for large batches."""
         with get_session(self.engine) as session:
             session.add_all(records)
-
-    def upsert_many(self, records: list[T]) -> None:
-        """Insert or update records based on primary key."""
-        with get_session(self.engine) as session:
-            for record in records:
-                existing = session.get(self.model, record.id)
-                if existing:
-                    for key, value in record.model_dump(exclude_unset=True).items():
-                        setattr(existing, key, value)
-                    session.add(existing)
-                else:
-                    session.add(record)
-            print(f"Successfully synced {len(records)} records to database.")
-
+            
     # ------------------------------------------------------------------
     # Delete
     # ------------------------------------------------------------------
