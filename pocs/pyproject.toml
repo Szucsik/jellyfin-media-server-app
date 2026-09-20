@@ -6,4 +6,5 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "requests>=2.34.2",
+    "sqlmodel>=0.0.42",
 ]
