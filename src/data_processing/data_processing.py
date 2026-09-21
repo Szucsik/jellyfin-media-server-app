@@ -141,7 +141,8 @@ class DataProcessing:
         # imdb_link -> list of torrents for that series
         by_series: dict[str, list[Torrent]] = {}
         for torrent in torrents:
-            by_series.setdefault(torrent.imdb_link, []).append(torrent)
+            if torrent.imdb_link != "":
+                by_series.setdefault(torrent.imdb_link, []).append(torrent)
 
         # --- pick one torrent per (series, season) -----------------------------
 
@@ -153,14 +154,7 @@ class DataProcessing:
             all_seasons: set[int] = set()
 
             # We need the Torrent and the Showseason together
-            shows: list[tuple[Torrent, ShowSeason]] = []
-
-            # Show season 
-            show = self.config.show_repository.find_first_by(imdb_link=imdb_link)
-            if show is None:
-                show = self.config.show_repository.save(Show(imdb_link=imdb_link))
-            show_id = show.id
-
+            torrent_and_showseason: list[tuple[Torrent, ShowSeason]] = []
 
             # Always prioritize hungarian tv shows
             language: str = self.get_torrent_language(series_torrents)
@@ -189,7 +183,7 @@ class DataProcessing:
                 if len(episodes) > 1:
                     show_season.episode = int(episodes[0])
 
-                shows.append((t, show_season))
+                torrent_and_showseason.append((t, show_season))
 
                 if is_single_season(show_season.season, show_season.season_to):
                     all_seasons.add(show_season.season)
@@ -199,7 +193,7 @@ class DataProcessing:
 
             # For each season pick the best torrent
             for season in sorted(all_seasons):
-                candidates = [s for s in shows if covers_season(s[1], season)]
+                candidates = [s for s in torrent_and_showseason if covers_season(s[1], season)]
                 if not candidates:
                     continue
 
@@ -212,6 +206,12 @@ class DataProcessing:
                     if better(candidate, best):
                         best = candidate
 
+                # Show season 
+                show = self.config.show_repository.find_first_by(imdb_link=imdb_link)
+                if show is None:
+                    show = self.config.show_repository.save(Show(imdb_link=imdb_link))
+                show_id = show.id
+                
                 # Persist one concrete row per selected season even when the
                 # source torrent is a multi-season pack.
                 selected = ShowSeason(
