@@ -220,4 +220,4 @@ class DataProcessing:
                     season_to=-1,
                     show_id=show_id,
                 )
-                self.config.show_season_repository.save(selected)
+                self.config.show_season_repository.save_if_new(selected)
