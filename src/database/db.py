@@ -253,6 +253,7 @@ class MovieRepository(BaseRepository):
             session.delete(record)
             return True
 
+# TODO: only save the unique records!
 class ShowSeasonsRepository(BaseRepository):
     """Show season-specific queries on top of the generic CRUD layer."""
 

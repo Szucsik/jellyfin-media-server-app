@@ -147,7 +147,6 @@ class DataProcessing:
 
         result: list[Torrent] = []
 
-
         # Iterate over each show seasons grouped by IMDB link
         for imdb_link, series_torrents in by_series.items():
             # Find every season number that appears across all torrents
@@ -204,9 +203,12 @@ class DataProcessing:
                 if not candidates:
                     continue
 
-                best = [show for show in shows if show[1].torrent_id == candidates[0][1].torrent_id][0]
+                # candidates[0][0] -> First candidate Torrent obj
+                # candidates[0][1] -> First candidate ShowSeason obj
+                # TODO: bad logic. It ranks tv shows by ID in the end
+                # Example: for Breaking Bad S01-S02 if the tv show has 6 seasons it won't change it for Breaking Bad S01-S06 if they has the same quality
+                best = candidates[0]
                 for candidate in candidates[1:]:
-                    candidate = [show for show in shows if show[1].torrent_id == candidate[1].torrent_id][0]
                     if better(candidate, best):
                         best = candidate
 
