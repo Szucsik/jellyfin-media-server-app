@@ -4,6 +4,8 @@ from models.torrent import Quality, Torrent
 from models.show_season import ShowSeason
 from models.movie import Movie
 
+from itertools import combinations
+
 import re
 
 
@@ -118,6 +120,37 @@ class DataProcessing:
             if t.season > 0 and t.season_to > 0:
                 return t.season <= season <= t.season_to
             return False
+
+        def find_best_matching_seasons(numbers: list[int], elements: list[tuple[Torrent, ShowSeason]]):
+            numbers = set(numbers)
+
+            # Try 1 element, then 2, then 3, etc.
+            for size in range(1, len(elements) + 1):
+
+                for combination in combinations(elements, size):
+
+                    covered = set()
+                    valid = True
+
+                    for torrent, show_season in combination:
+                        if show_season.season_to > show_season.season:
+                            values = set(range(show_season.season, show_season.season_to + 1))
+                        else:
+                            values = set([show_season.season])
+
+                        # If this element overlaps with something
+                        # already selected, this combination is invalid.
+                        if covered & values:
+                            valid = False
+                            break
+
+                        covered.update(values)
+
+                    # Must cover every number exactly once
+                    if valid and covered == numbers:
+                        return combination
+
+            return None
             
         def better(challenger: tuple[Torrent, ShowSeason], current: tuple[Torrent, ShowSeason]) -> bool:
             """
@@ -191,33 +224,23 @@ class DataProcessing:
                     # Include both endpoints for ranges like S01-S03.
                     all_seasons.update(range(show_season.season, show_season.season_to + 1))
 
-            # For each season pick the best torrent
-            for season in sorted(all_seasons):
-                candidates = [s for s in torrent_and_showseason if covers_season(s[1], season)]
-                if not candidates:
-                    continue
 
-                # candidates[0][0] -> First candidate Torrent obj
-                # candidates[0][1] -> First candidate ShowSeason obj
-                # TODO: bad logic. It ranks tv shows by ID in the end
-                # Example: for Breaking Bad S01-S02 if the tv show has 6 seasons it won't change it for Breaking Bad S01-S06 if they has the same quality
-                best = candidates[0]
-                for candidate in candidates[1:]:
-                    if better(candidate, best):
-                        best = candidate
+            # New implementation
+            if len(all_seasons) > 0:
+                optimal_seasons = find_best_matching_seasons(numbers=all_seasons, elements=torrent_and_showseason)
 
-                # Show season 
-                show = self.config.show_repository.find_first_by(imdb_link=imdb_link)
-                if show is None:
-                    show = self.config.show_repository.save(Show(imdb_link=imdb_link))
-                show_id = show.id
-                
-                # Persist one concrete row per selected season even when the
-                # source torrent is a multi-season pack.
-                selected = ShowSeason(
-                    torrent_id=best[1].torrent_id,
-                    season=season,
-                    season_to=-1,
-                    show_id=show_id,
-                )
-                self.config.show_season_repository.save_if_new(selected)
+                for optimal_season in optimal_seasons:
+                    # Show season 
+                    show = self.config.show_repository.find_first_by(imdb_link=imdb_link)
+                    if show is None:
+                        show = self.config.show_repository.save(Show(imdb_link=imdb_link))
+                    show_id = show.id
+
+                    selected = ShowSeason(
+                        torrent_id=optimal_season[1].torrent_id,
+                        season=optimal_season[1].season,
+                        season_to=optimal_season[1].season_to,
+                        show_id=show_id,
+                    )
+
+                    self.config.show_season_repository.save_if_new(selected)
