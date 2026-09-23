@@ -53,9 +53,9 @@ class DataProcessing:
         best: dict[str, Torrent] = {}
 
         order = {
-            Quality.HD:         1,   # 720p  – most preferred
-            Quality.UHD:        2,   # 1080p
-            Quality.SD:         3,   # 2160p
+            Quality.HD:         1,   # 1080p  – most preferred
+            Quality.UHD:        2,   # 2160p
+            Quality.SD:         3,   # 720p
             Quality.UNASSIGNED: 99,  # always last
         }
 
@@ -95,15 +95,15 @@ class DataProcessing:
 
         # --- helpers -----------------------------------------------------------
 
-        def quality_rank(t: Torrent) -> int:
+        def get_quality_torrents(t: list[tuple[Torrent, ShowSeason]], q: Quality) -> list[tuple[Torrent, ShowSeason]]:
             """Lower rank = more preferred (we use min-selection)."""
-            order = {
-                Quality.SD:         1,   # 720p  – most preferred
-                Quality.HD:         2,   # 1080p
-                Quality.UHD:        3,   # 2160p
-                Quality.UNASSIGNED: 99,  # always last
-            }
-            return order.get(t.quality, 99)
+            preferred: list[tuple[Torrent, ShowSeason]] = []
+
+            for torrent in t:
+                if torrent[0].quality == q:
+                    preferred.append(torrent)
+
+            return preferred
 
         def is_single_season(season: int, season_to: int) -> bool:
             return season_to == -1 and season > 0
@@ -111,15 +111,6 @@ class DataProcessing:
         def is_an_episode(t: Torrent) -> bool:
             match = re.search(r'E(\d+)', t.title)
             return match is not None
-
-        def covers_season(t: ShowSeason, season: int) -> bool:
-            """True when this torrent contains the given season number."""
-            if is_single_season(t.season, t.season_to):
-                return t.season == season
-            # multi-season pack: season_from..season_to
-            if t.season > 0 and t.season_to > 0:
-                return t.season <= season <= t.season_to
-            return False
 
         def find_best_matching_seasons(numbers: list[int], elements: list[tuple[Torrent, ShowSeason]]):
             numbers = set(numbers)
@@ -151,23 +142,6 @@ class DataProcessing:
                         return combination
 
             return None
-            
-        def better(challenger: tuple[Torrent, ShowSeason], current: tuple[Torrent, ShowSeason]) -> bool:
-            """
-            Returns True if challenger should replace current.
-            Single-season always beats multi-season pack.
-            Within the same 'tier', lower quality_rank wins.
-            """
-            challenger_single = is_single_season(challenger[1].season, challenger[1].season_to)
-            current_single    = is_single_season(current[1].season, current[1].season_to)
-
-            if challenger_single and not current_single:
-                return True   # single-season beats pack
-            if not challenger_single and current_single:
-                return False  # never replace single with pack
-
-            # same tier → compare quality
-            return quality_rank(challenger[0]) < quality_rank(current[0])
 
         # --- group by series ---------------------------------------------------
 
@@ -187,6 +161,7 @@ class DataProcessing:
             all_seasons: set[int] = set()
 
             # We need the Torrent and the Showseason together
+            # We use the Torrent for getting the correct quality seasons...
             torrent_and_showseason: list[tuple[Torrent, ShowSeason]] = []
 
             # Always prioritize hungarian tv shows
@@ -227,7 +202,23 @@ class DataProcessing:
 
             # New implementation
             if len(all_seasons) > 0:
-                optimal_seasons = find_best_matching_seasons(numbers=all_seasons, elements=torrent_and_showseason)
+                hd_shows: list[Torrent] = get_quality_torrents(t=torrent_and_showseason, q=Quality.HD)
+                sd_shows: list[Torrent] = get_quality_torrents(t=torrent_and_showseason, q=Quality.SD)
+                uhd_shows: list[Torrent] = get_quality_torrents(t=torrent_and_showseason, q=Quality.UHD)
+
+                optimal_seasons = find_best_matching_seasons(numbers=all_seasons, elements=hd_shows)
+
+                if optimal_seasons == None:
+                    optimal_seasons = find_best_matching_seasons(numbers=all_seasons, elements=hd_shows)
+                
+                if optimal_seasons == None:
+                    optimal_seasons = find_best_matching_seasons(numbers=all_seasons, elements=sd_shows)
+
+                if optimal_seasons == None:
+                    optimal_seasons = find_best_matching_seasons(numbers=all_seasons, elements=uhd_shows)
+
+                if optimal_seasons == None:
+                    optimal_seasons = find_best_matching_seasons(numbers=all_seasons, elements=torrent_and_showseason)
 
                 for optimal_season in optimal_seasons:
                     # Show season 
