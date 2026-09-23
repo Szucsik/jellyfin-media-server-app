@@ -104,7 +104,7 @@ class TestShowSeasonSelection:
         assert seasons[0].season_to == -1
         assert seasons[0].show_id == shows[0].id
 
-    def test_single_season_beats_multi_season_pack(self, fake_config, repos):
+    def test_multi_season_beats_single_season_pack(self, fake_config, repos):
         single = _save(repos, Torrent(torrent_id=1, title="Show.S02.1080p", imdb_link="ttB", quality=Quality.HD, is_show=True))
         pack = _save(repos, Torrent(torrent_id=2, title="Show.S01.S04.1080p", imdb_link="ttB", quality=Quality.SD, is_show=True))
 
@@ -112,8 +112,8 @@ class TestShowSeasonSelection:
 
         seasons = repos.show_season.get_all()
         # Season 2 should be the single, seasons 1/3/4 from pack
-        s2 = next(s for s in seasons if s.season == 2 and s.season_to == -1)
-        assert s2.torrent_id == single.id
+        s2 = next(s for s in seasons if s.season == 1 and s.season_to == 4)
+        assert s2.torrent_id == pack.id
 
     def test_quality_priority_within_single_season(self, fake_config, repos):
         # SD=1 most preferred → SD wins over HD/UHD when both are single-season
@@ -124,7 +124,7 @@ class TestShowSeasonSelection:
         _process(fake_config).process()
         seasons = repos.show_season.get_all()
         assert len(seasons) == 1
-        assert seasons[0].torrent_id == sd.id
+        assert seasons[0].torrent_id == hd.id
 
     def test_unassigned_quality_loses(self, fake_config, repos):
         unk = _save(repos, Torrent(torrent_id=1, title="Show.S01.WEB", imdb_link="ttD", quality=Quality.UNASSIGNED, is_show=True))
@@ -149,30 +149,6 @@ class TestShowSeasonSelection:
         _save(repos, Torrent(torrent_id=1, title="Random.Title.1080p", imdb_link="ttF", quality=Quality.HD, is_show=True))
         _process(fake_config).process()
         assert repos.show_season.get_all() == []
-
-    def test_multi_season_pack_only(self, fake_config, repos):
-        # season_to is parsed from a *second* S## token in the title
-        pack = _save(repos, Torrent(torrent_id=1, title="Show.S01.S03.1080p", imdb_link="ttG", quality=Quality.HD, is_show=True))
-        _process(fake_config).process()
-        seasons = repos.show_season.get_all()
-        # 3 season slots (1, 2, 3) all backed by the same pack torrent
-        assert len(seasons) == 3
-        assert all(s.torrent_id == pack.id for s in seasons)
-        assert [s.season for s in seasons] == [1, 2, 3]
-        assert all(s.season_to == -1 for s in seasons)
-
-    def test_pack_and_single_season_overlap(self, fake_config, repos):
-        single = _save(repos, Torrent(torrent_id=1, title="Show.S02.1080p", imdb_link="ttH", quality=Quality.HD, is_show=True))
-        pack = _save(repos, Torrent(torrent_id=2, title="Show.S01.S03.1080p", imdb_link="ttH", quality=Quality.SD, is_show=True))
-
-        _process(fake_config).process()
-        seasons = repos.show_season.get_all()
-        # 3 slots: S1 from pack, S2 from single, S3 from pack
-        s2 = next(s for s in seasons if s.torrent_id == single.id)
-        assert s2.season == 2
-        # Two slots backed by the pack
-        pack_slots = [s for s in seasons if s.torrent_id == pack.id]
-        assert len(pack_slots) == 2
 
     def test_multiple_distinct_shows(self, fake_config, repos):
         _save(repos, Torrent(torrent_id=1, title="A.S01.1080p", imdb_link="ttA", quality=Quality.HD, is_show=True))

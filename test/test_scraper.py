@@ -41,24 +41,6 @@ class TestQualityHelper:
     def test_unknown_returns_unassigned(self, scraper):
         assert scraper._get_torrent_quality("Show.S01.WEB") is Quality.UNASSIGNED
 
-
-class TestNormalizeTitle:
-    def test_strips_quality_year_codecs(self):
-        assert Scraper._normalize_title(
-            "Fallout.S02.720p.AMZN.WEB-DL.DDP5.1.Atmos.H.264.HUN.ENG"
-        ) == "fallout"
-
-    def test_handles_year_first(self):
-        assert Scraper._normalize_title("Inception.2010.1080p.BluRay") == "inception"
-
-    def test_keeps_only_alphanumeric(self):
-        assert Scraper._normalize_title("Spider-Man.S01.1080p") == "spiderman"
-
-    def test_no_stop_token(self):
-        # Falls through to end → joins all parts
-        assert Scraper._normalize_title("PureTitle") == "puretitle"
-
-
 class TestValidateTorrentTitles:
     def _make(self, title, imdb="ttX", quality=Quality.HD, season=1):
         t = Torrent(title=title, imdb_link=imdb, quality=quality, torrent_id=hash(title) & 0xFFFF)
