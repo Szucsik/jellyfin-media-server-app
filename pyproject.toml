@@ -1,0 +1,28 @@
+[project]
+name = "jellyfin-media-server-app"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "szucsiki", email = "istvan.szucsik@proton.me" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
+    "pydantic>=2.13.5",
+    "pytest>=9.1.1",
+    "qbittorrent-api>=2026.8.1",
+    "requests>=2.34.2",
+    "selenium>=4.49.0",
+    "sqlmodel>=0.0.42",
+    "torrentool>=1.2.0",
+    "uvicorn>=0.53.0",
+]
+
+[project.scripts]
+jellyfin-media-server-app = "jellyfin_media_server_app:main"
+
+[build-system]
+requires = ["uv_build>=0.12.9,<0.13.0"]
+build-backend = "uv_build"

@@ -253,6 +253,7 @@ class MovieRepository(BaseRepository):
             session.delete(record)
             return True
 
+# TODO: only save the unique records!
 class ShowSeasonsRepository(BaseRepository):
     """Show season-specific queries on top of the generic CRUD layer."""
 
@@ -266,6 +267,40 @@ class ShowSeasonsRepository(BaseRepository):
             for r in results:
                 session.expunge(r)
             return results
+
+    def save_if_new(self, record: ShowSeason) -> ShowSeason:
+        """Insert a season and ignore it when its logical identity exists."""
+        with get_session(self.engine) as session:
+            statement = (
+                sqlite_insert(ShowSeason)
+                .values(
+                    torrent_id=record.torrent_id,
+                    season=record.season,
+                    season_to=record.season_to,
+                    show_id=record.show_id,
+                )
+                .on_conflict_do_nothing(
+                    index_elements=[
+                        "torrent_id",
+                        "season",
+                        "season_to",
+                        "show_id",
+                    ]
+                )
+            )
+            session.exec(statement)
+
+            existing = session.exec(
+                select(self.model).where(
+                    self.model.torrent_id == record.torrent_id,
+                    self.model.season == record.season,
+                    self.model.season_to == record.season_to,
+                    self.model.show_id == record.show_id,
+                )
+            ).first()
+            if existing is not None:
+                session.expunge(existing)
+            return existing
 
     def delete_by_torrent_id(self, torrent_id: int) -> bool:
         """Delete the show season associated with the given torrent_id. Returns True if deleted, False if not found."""

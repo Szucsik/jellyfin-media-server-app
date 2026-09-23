@@ -48,9 +48,12 @@ class Configuration:
     local_files_repository = LocalFilesRepository()
 
     # Scan type
-
+    # Chose between scan types, full scan to analyze the whole ncore.pro torrent indexer
+    # refresh is just loading the last 50 torrents to the database
     scan_type: str = "full_scan"  # full_scan / refresh
 
+
+    # Load environment variables
     # Ncore variables
     username = os.getenv("NCORE_USERNAME")
     password = os.getenv("NCORE_PASSWORD")

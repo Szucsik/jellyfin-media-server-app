@@ -167,6 +167,27 @@ class TestMovieRepository:
 
 
 class TestShowSeasonsRepository:
+    def test_save_if_new_skips_duplicate_identity(self, repos):
+        first = repos.show_season.save_if_new(
+            ShowSeason(torrent_id=1, season=1, season_to=-1, show_id=10)
+        )
+        duplicate = repos.show_season.save_if_new(
+            ShowSeason(torrent_id=1, season=1, season_to=-1, show_id=10)
+        )
+
+        assert duplicate.id == first.id
+        assert len(repos.show_season.get_all()) == 1
+
+    def test_save_if_new_inserts_distinct_identity(self, repos):
+        repos.show_season.save_if_new(
+            ShowSeason(torrent_id=1, season=1, season_to=-1, show_id=10)
+        )
+        repos.show_season.save_if_new(
+            ShowSeason(torrent_id=1, season=2, season_to=-1, show_id=10)
+        )
+
+        assert len(repos.show_season.get_all()) == 2
+
     def test_get_all_seasons_for_show(self, repos):
         repos.show_season.save(ShowSeason(torrent_id=1, season=1, show_id=10))
         repos.show_season.save(ShowSeason(torrent_id=2, season=2, show_id=10))

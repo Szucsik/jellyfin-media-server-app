@@ -4,6 +4,8 @@ from models.torrent import Quality, Torrent
 from models.show_season import ShowSeason
 from models.movie import Movie
 
+from itertools import combinations
+
 import re
 
 
@@ -51,9 +53,9 @@ class DataProcessing:
         best: dict[str, Torrent] = {}
 
         order = {
-            Quality.HD:         1,   # 720p  – most preferred
-            Quality.UHD:        2,   # 1080p
-            Quality.SD:         3,   # 2160p
+            Quality.HD:         1,   # 1080p  – most preferred
+            Quality.UHD:        2,   # 2160p
+            Quality.SD:         3,   # 720p
             Quality.UNASSIGNED: 99,  # always last
         }
 
@@ -93,15 +95,15 @@ class DataProcessing:
 
         # --- helpers -----------------------------------------------------------
 
-        def quality_rank(t: Torrent) -> int:
+        def get_quality_torrents(t: list[tuple[Torrent, ShowSeason]], q: Quality) -> list[tuple[Torrent, ShowSeason]]:
             """Lower rank = more preferred (we use min-selection)."""
-            order = {
-                Quality.SD:         1,   # 720p  – most preferred
-                Quality.HD:         2,   # 1080p
-                Quality.UHD:        3,   # 2160p
-                Quality.UNASSIGNED: 99,  # always last
-            }
-            return order.get(t.quality, 99)
+            preferred: list[tuple[Torrent, ShowSeason]] = []
+
+            for torrent in t:
+                if torrent[0].quality == q:
+                    preferred.append(torrent)
+
+            return preferred
 
         def is_single_season(season: int, season_to: int) -> bool:
             return season_to == -1 and season > 0
@@ -110,43 +112,48 @@ class DataProcessing:
             match = re.search(r'E(\d+)', t.title)
             return match is not None
 
-        def covers_season(t: ShowSeason, season: int) -> bool:
-            """True when this torrent contains the given season number."""
-            if is_single_season(t.season, t.season_to):
-                return t.season == season
-            # multi-season pack: season_from..season_to
-            if t.season > 0 and t.season_to > 0:
-                return t.season <= season <= t.season_to
-            return False
-            
-        def better(challenger: tuple[Torrent, ShowSeason], current: tuple[Torrent, ShowSeason]) -> bool:
-            """
-            Returns True if challenger should replace current.
-            Single-season always beats multi-season pack.
-            Within the same 'tier', lower quality_rank wins.
-            """
-            challenger_single = is_single_season(challenger[1].season, challenger[1].season_to)
-            current_single    = is_single_season(current[1].season, current[1].season_to)
+        def find_best_matching_seasons(numbers: list[int], elements: list[tuple[Torrent, ShowSeason]]):
+            numbers = set(numbers)
 
-            if challenger_single and not current_single:
-                return True   # single-season beats pack
-            if not challenger_single and current_single:
-                return False  # never replace single with pack
+            # Try 1 element, then 2, then 3, etc.
+            for size in range(1, len(elements) + 1):
 
-            # same tier → compare quality
-            return quality_rank(challenger[0]) < quality_rank(current[0])
+                for combination in combinations(elements, size):
+
+                    covered = set()
+                    valid = True
+
+                    for torrent, show_season in combination:
+                        if show_season.season_to > show_season.season:
+                            values = set(range(show_season.season, show_season.season_to + 1))
+                        else:
+                            values = set([show_season.season])
+
+                        # If this element overlaps with something
+                        # already selected, this combination is invalid.
+                        if covered & values:
+                            valid = False
+                            break
+
+                        covered.update(values)
+
+                    # Must cover every number exactly once
+                    if valid and covered == numbers:
+                        return combination
+
+            return None
 
         # --- group by series ---------------------------------------------------
 
         # imdb_link -> list of torrents for that series
         by_series: dict[str, list[Torrent]] = {}
         for torrent in torrents:
-            by_series.setdefault(torrent.imdb_link, []).append(torrent)
+            if torrent.imdb_link != "":
+                by_series.setdefault(torrent.imdb_link, []).append(torrent)
 
         # --- pick one torrent per (series, season) -----------------------------
 
         result: list[Torrent] = []
-
 
         # Iterate over each show seasons grouped by IMDB link
         for imdb_link, series_torrents in by_series.items():
@@ -154,14 +161,8 @@ class DataProcessing:
             all_seasons: set[int] = set()
 
             # We need the Torrent and the Showseason together
-            shows: list[tuple[Torrent, ShowSeason]] = []
-
-            # Show season 
-            show = self.config.show_repository.find_first_by(imdb_link=imdb_link)
-            if show is None:
-                show = self.config.show_repository.save(Show(imdb_link=imdb_link))
-            show_id = show.id
-
+            # We use the Torrent for getting the correct quality seasons...
+            torrent_and_showseason: list[tuple[Torrent, ShowSeason]] = []
 
             # Always prioritize hungarian tv shows
             language: str = self.get_torrent_language(series_torrents)
@@ -190,7 +191,7 @@ class DataProcessing:
                 if len(episodes) > 1:
                     show_season.episode = int(episodes[0])
 
-                shows.append((t, show_season))
+                torrent_and_showseason.append((t, show_season))
 
                 if is_single_season(show_season.season, show_season.season_to):
                     all_seasons.add(show_season.season)
@@ -198,24 +199,39 @@ class DataProcessing:
                     # Include both endpoints for ranges like S01-S03.
                     all_seasons.update(range(show_season.season, show_season.season_to + 1))
 
-            # For each season pick the best torrent
-            for season in sorted(all_seasons):
-                candidates = [s for s in shows if covers_season(s[1], season)]
-                if not candidates:
-                    continue
 
-                best = [show for show in shows if show[1].torrent_id == candidates[0][1].torrent_id][0]
-                for candidate in candidates[1:]:
-                    candidate = [show for show in shows if show[1].torrent_id == candidate[1].torrent_id][0]
-                    if better(candidate, best):
-                        best = candidate
+            # New implementation
+            if len(all_seasons) > 0:
+                hd_shows: list[Torrent] = get_quality_torrents(t=torrent_and_showseason, q=Quality.HD)
+                sd_shows: list[Torrent] = get_quality_torrents(t=torrent_and_showseason, q=Quality.SD)
+                uhd_shows: list[Torrent] = get_quality_torrents(t=torrent_and_showseason, q=Quality.UHD)
 
-                # Persist one concrete row per selected season even when the
-                # source torrent is a multi-season pack.
-                selected = ShowSeason(
-                    torrent_id=best[1].torrent_id,
-                    season=season,
-                    season_to=-1,
-                    show_id=show_id,
-                )
-                self.config.show_season_repository.save(selected)
+                optimal_seasons = find_best_matching_seasons(numbers=all_seasons, elements=hd_shows)
+
+                if optimal_seasons == None:
+                    optimal_seasons = find_best_matching_seasons(numbers=all_seasons, elements=hd_shows)
+                
+                if optimal_seasons == None:
+                    optimal_seasons = find_best_matching_seasons(numbers=all_seasons, elements=sd_shows)
+
+                if optimal_seasons == None:
+                    optimal_seasons = find_best_matching_seasons(numbers=all_seasons, elements=uhd_shows)
+
+                if optimal_seasons == None:
+                    optimal_seasons = find_best_matching_seasons(numbers=all_seasons, elements=torrent_and_showseason)
+
+                for optimal_season in optimal_seasons:
+                    # Show season 
+                    show = self.config.show_repository.find_first_by(imdb_link=imdb_link)
+                    if show is None:
+                        show = self.config.show_repository.save(Show(imdb_link=imdb_link))
+                    show_id = show.id
+
+                    selected = ShowSeason(
+                        torrent_id=optimal_season[1].torrent_id,
+                        season=optimal_season[1].season,
+                        season_to=optimal_season[1].season_to,
+                        show_id=show_id,
+                    )
+
+                    self.config.show_season_repository.save_if_new(selected)
