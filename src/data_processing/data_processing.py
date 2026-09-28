@@ -4,7 +4,7 @@ from models.torrent import Quality, Torrent
 from models.show_season import ShowSeason
 from models.movie import Movie
 
-from itertools import combinations
+from collections import deque
 
 import re
 
@@ -113,35 +113,60 @@ class DataProcessing:
             return match is not None
 
         def find_best_matching_seasons(numbers: list[int], elements: list[tuple[Torrent, ShowSeason]]):
-            numbers = set(numbers)
+            # Exact-cover of the required seasons by non-overlapping torrent
+            # intervals. Each element covers [season, season_to] (or a single
+            # season); ranges never cross a gap, so every integer they span is
+            # a required season. In any exact cover the interval containing the
+            # smallest uncovered season must start at that season, which lets us
+            # solve it with a BFS over the sorted seasons instead of trying all
+            # 2^n subsets. BFS also yields the cover using the fewest torrents.
+            targets = sorted(set(numbers))
+            if not targets:
+                return None
 
-            # Try 1 element, then 2, then 3, etc.
-            for size in range(1, len(elements) + 1):
+            target_set = set(targets)
+            index_of = {season: i for i, season in enumerate(targets)}
 
-                for combination in combinations(elements, size):
+            # season_start -> list of (season_end, element), input order preserved
+            starts: dict[int, list[tuple[int, tuple[Torrent, ShowSeason]]]] = {}
+            for element in elements:
+                show_season = element[1]
+                start = show_season.season
+                end = show_season.season_to if show_season.season_to > start else start
+                if start not in target_set:
+                    continue
+                if any(season not in target_set for season in range(start, end + 1)):
+                    continue
+                starts.setdefault(start, []).append((end, element))
 
-                    covered = set()
-                    valid = True
+            n = len(targets)
+            visited = [False] * (n + 1)
+            visited[0] = True
+            parent: dict[int, tuple[int, tuple[Torrent, ShowSeason]]] = {}
+            queue = deque([0])
 
-                    for torrent, show_season in combination:
-                        if show_season.season_to > show_season.season:
-                            values = set(range(show_season.season, show_season.season_to + 1))
-                        else:
-                            values = set([show_season.season])
+            while queue:
+                i = queue.popleft()
+                if i == n:
+                    break
+                for end, element in starts.get(targets[i], ()):
+                    nxt = index_of[end] + 1
+                    if not visited[nxt]:
+                        visited[nxt] = True
+                        parent[nxt] = (i, element)
+                        queue.append(nxt)
 
-                        # If this element overlaps with something
-                        # already selected, this combination is invalid.
-                        if covered & values:
-                            valid = False
-                            break
+            if not visited[n]:
+                return None
 
-                        covered.update(values)
-
-                    # Must cover every number exactly once
-                    if valid and covered == numbers:
-                        return combination
-
-            return None
+            chosen: list[tuple[Torrent, ShowSeason]] = []
+            node = n
+            while node in parent:
+                prev_i, element = parent[node]
+                chosen.append(element)
+                node = prev_i
+            chosen.reverse()
+            return chosen
 
         # --- group by series ---------------------------------------------------
 
