@@ -156,8 +156,14 @@ class DataProcessing:
         result: list[Torrent] = []
 
         # Iterate over each show seasons grouped by IMDB link
-        for imdb_link, series_torrents in by_series.items():
-            self.logger.info(f"Starting to process tv show {series_torrents[0].title}")
+        total_series = len(by_series)
+        for series_index, (imdb_link, series_torrents) in enumerate(by_series.items(), start=1):
+            self.logger.info(
+                "Starting to process tv show %s (%s/%s)",
+                series_torrents[0].title,
+                series_index,
+                total_series,
+            )
             self.logger.info(f"Number of torrent records: {len(series_torrents)}")
             # Find every season number that appears across all torrents
             all_seasons: set[int] = set()
@@ -208,7 +214,7 @@ class DataProcessing:
                 sd_shows: list[Torrent] = get_quality_torrents(t=torrent_and_showseason, q=Quality.SD)
                 uhd_shows: list[Torrent] = get_quality_torrents(t=torrent_and_showseason, q=Quality.UHD)
 
-                optimal_seasons = find_best_matching_seasons(numbers=all_seasons, elements=hd_shows
+                optimal_seasons = find_best_matching_seasons(numbers=all_seasons, elements=hd_shows)
                 
                 if optimal_seasons == None:
                     optimal_seasons = find_best_matching_seasons(numbers=all_seasons, elements=sd_shows)
