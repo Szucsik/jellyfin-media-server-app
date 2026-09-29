@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import logging
 import re
+import time
 import requests
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 # ── data classes ──────────────────────────────────────────────────────────────
@@ -593,16 +597,62 @@ class FileProcessingUtils:
             "external_source": "imdb_id"
         }
 
-        response = requests.get(url, params=params, timeout=120)
-        data = response.json()
+        max_retries = 5
+        backoff = 1.0
+        for attempt in range(1, max_retries + 1):
+            try:
+                response = requests.get(url, params=params, timeout=120)
+            except requests.exceptions.RequestException as e:
+                # Network/connection errors (DNS, unreachable, timeout) — retry.
+                logger.error(
+                    "TMDB request error for imdb_id=%s, attempt %s/%s: %s. Retrying in %.1fs",
+                    imdb_id, attempt, max_retries, e, backoff,
+                )
+                if attempt == max_retries:
+                    break
+                time.sleep(backoff)
+                backoff *= 2
+                continue
 
-        # Check movies first, then TV shows
-        if data["movie_results"]:
-            return f"{data['movie_results'][0]['title']} [imdbid-{imdb_id}]"
-        elif data["tv_results"]:
-            return f"{data['tv_results'][0]['name']} [imdbid-{imdb_id}]"
-        else:
-            return ""
+            if response.status_code == 429:
+                # Respect TMDB's Retry-After header when present.
+                retry_after = response.headers.get("Retry-After")
+                wait = float(retry_after) if retry_after else backoff
+                logger.error(
+                    "TMDB rate limit hit (429) for imdb_id=%s, attempt %s/%s: %s. Retrying in %.1fs",
+                    imdb_id, attempt, max_retries, response.text, wait,
+                )
+                if attempt == max_retries:
+                    break
+                time.sleep(wait)
+                backoff *= 2
+                continue
+
+            try:
+                response.raise_for_status()
+                data = response.json()
+            except (requests.exceptions.RequestException, ValueError) as e:
+                # HTTP 5xx or an unparseable body — retry.
+                logger.error(
+                    "TMDB response error for imdb_id=%s, attempt %s/%s: %s. Retrying in %.1fs",
+                    imdb_id, attempt, max_retries, e, backoff,
+                )
+                if attempt == max_retries:
+                    break
+                time.sleep(backoff)
+                backoff *= 2
+                continue
+
+            # Check movies first, then TV shows
+            if data["movie_results"]:
+                return f"{data['movie_results'][0]['title']} [imdbid-{imdb_id}]"
+            elif data["tv_results"]:
+                return f"{data['tv_results'][0]['name']} [imdbid-{imdb_id}]"
+            else:
+                return ""
+
+        logger.error("TMDB request failed after %s attempts for imdb_id=%s", max_retries, imdb_id)
+        return ""
 
 
     def get_show(self, files: list[str]) -> list[Show]:
