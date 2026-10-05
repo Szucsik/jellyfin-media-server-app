@@ -21,10 +21,7 @@ class JellyfinApi:
     # ── Jellyfin helpers ──────────────────────────────────────────────────────────
     def _headers(self) -> dict:
         return {
-            "X-Emby-Authorization": (
-                f'MediaBrowser Client="JellyfinMonitor", '
-                f'Device="PythonScript", DeviceId="monitor-001", Version="1.0", Token="{self.api_key}"'
-            ),
+            "Authorization": f'MediaBrowser Token="{self.api_key}"',
             "Accept": "application/json",
         }
 

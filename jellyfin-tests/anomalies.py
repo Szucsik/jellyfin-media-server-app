@@ -26,7 +26,7 @@ Requires python-dotenv:
 
 Notes on auth:
   - An API key alone is enough for most GET endpoints via the
-    X-Emby-Token header / api_key query param.
+        Authorization: MediaBrowser Token="..." header.
   - Some endpoints (notably listing items) are nicer when scoped to a user
     (/Users/{UserId}/Items) so that things like "IsPlayed" etc. resolve
     correctly, but it's optional -- if you don't pass --user-id the script
@@ -100,7 +100,7 @@ def get_args():
 
 def jf_get(url, api_key, path, params=None):
     params = dict(params or {})
-    headers = {"X-Emby-Token": api_key}
+    headers = {"Authorization": f'MediaBrowser Token="{api_key}"'}
     resp = requests.get(f"{url}{path}", headers=headers, params=params, timeout=30)
     resp.raise_for_status()
     return resp.json()
