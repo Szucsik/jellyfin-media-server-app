@@ -106,5 +106,16 @@ async def download_torrents() -> str:
 
     return "Torrents download pipeline finished"
 
+@app.post("/fix-loose-links")
+async def fix_loose_links() -> dict:
+    """Scan the movie and series libraries and repoint broken symlinks to the placeholder."""
+    logger.info("Fixing loose links started")
+    file_processor = FileProcessing(config=config)
+    result = file_processor.fix_loose_links()
+
+    logger.info("Fixing loose links finished: %s", result)
+
+    return result
+
 
 #     return "Torrentfile downloaded"

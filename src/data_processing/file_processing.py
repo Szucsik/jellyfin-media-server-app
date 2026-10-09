@@ -199,6 +199,112 @@ class FileProcessing:
         if removed > 0:
             self.logger.warning("Removed %s stray top-level season directories under %s", removed, root)
 
+    def fix_loose_links(self) -> dict:
+        """Scan the movie and series libraries and repair broken symlinks.
+
+        A "loose" (broken) link is a symbolic link whose target no longer
+        exists.  Every such link is recreated at its original path so it points
+        at the base placeholder, keeping the Jellyfin entry alive until the real
+        media is available again.  Regular files, directories and valid symlinks
+        are never touched, and directory traversal never follows symlinks so it
+        cannot leave the configured target directories.
+        """
+        placeholder_path = Path(self.config.placeholder_starter_path)
+        target_directories = [
+            self.config.symlink_movies_directory,
+            self.config.symlink_series_directory,
+        ]
+
+        summary: dict = {
+            "placeholder": str(placeholder_path),
+            "directories_scanned": [],
+            "missing_directories": [],
+            "broken_links_detected": 0,
+            "repaired": 0,
+            "failed": 0,
+            "errors": [],
+        }
+
+        # Never repoint broken links at a placeholder that does not exist.
+        if not placeholder_path.is_file():
+            message = f"Placeholder path is missing or invalid: {placeholder_path}"
+            self.logger.error(message)
+            summary["errors"].append(message)
+            return summary
+
+        for directory in target_directories:
+            directory_path = Path(directory)
+
+            if not directory_path.is_dir():
+                message = f"Target directory does not exist or is not a directory: {directory_path}"
+                self.logger.warning(message)
+                summary["missing_directories"].append(str(directory_path))
+                summary["errors"].append(message)
+                continue
+
+            summary["directories_scanned"].append(str(directory_path))
+
+            def _on_walk_error(error: OSError) -> None:
+                message = f"Failed to scan {error.filename!r}: {error}"
+                self.logger.error(message)
+                summary["errors"].append(message)
+
+            for root, dirnames, filenames in os.walk(
+                directory_path, topdown=True, followlinks=False, onerror=_on_walk_error
+            ):
+                # Broken symlinks to directories end up in `dirnames`, broken
+                # symlinks to files in `filenames`; inspect both without
+                # following them.
+                for name in (*dirnames, *filenames):
+                    candidate = Path(root) / name
+
+                    # Only symbolic links can be loose; never touch real
+                    # files or directories.
+                    if not candidate.is_symlink():
+                        continue
+
+                    # A symlink whose target resolves is healthy: leave it.
+                    if candidate.exists():
+                        continue
+
+                    summary["broken_links_detected"] += 1
+
+                    try:
+                        self._repair_symlink(candidate, placeholder_path)
+                    except OSError as error:
+                        summary["failed"] += 1
+                        message = f"Failed to repair symlink {candidate}: {error}"
+                        self.logger.error(message)
+                        summary["errors"].append(message)
+                    else:
+                        summary["repaired"] += 1
+                        self.logger.info(
+                            "Repaired loose symlink: %s -> %s", candidate, placeholder_path
+                        )
+
+        return summary
+
+    def _repair_symlink(self, symlink_path: Path, target_path: Path) -> None:
+        """Recreate ``symlink_path`` so it points at ``target_path``.
+
+        A temporary symlink is created next to the original and moved into
+        place with an atomic ``os.replace`` so a concurrent reader never sees a
+        missing entry and a concurrent writer cannot leave a half-written link.
+        """
+        temp_path = symlink_path.with_name(f".{symlink_path.name}.fixing-{os.getpid()}")
+
+        # Clean up a stale temporary link left behind by an interrupted run.
+        if temp_path.is_symlink() or temp_path.exists():
+            temp_path.unlink()
+
+        try:
+            temp_path.symlink_to(target_path)
+            os.replace(temp_path, symlink_path)
+        finally:
+            # A failed replace must not leave the temporary link behind.
+            if temp_path.is_symlink() or temp_path.exists():
+                temp_path.unlink()
+
     def _get_skipped_shows_report_path(self) -> Path:
         """Return the report file path for skipped shows."""
         return Path(self.config.torrent_files_target_location) / "skipped_shows_report.tsv"
