@@ -251,18 +251,6 @@ class TorrentSyncService:
 
         return None
 
-    def _find_episode_index(self, played_path: str, local_info: LocalFileInformation) -> int:
-        """Find which file index in the torrent corresponds to the played path."""
-        matched = self._match_episode_index(played_path, local_info)
-        if matched is not None:
-            return matched
-
-        self.logger.warning(
-            "Could not match played path '%s' to an episode index, defaulting to 0",
-            unquote(played_path.strip()),
-        )
-        return 0
-
     def _match_episode_index(self, played_path: str, local_info: LocalFileInformation) -> Optional[int]:
         """Return the file index matching the played path, or None if no confident match.
 

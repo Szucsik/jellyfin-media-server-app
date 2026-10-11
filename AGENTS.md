@@ -187,6 +187,9 @@ curl -X POST 'http://localhost:8800/parsing?pages=50'
 # Re-run only the dedup + file/symlink step
 curl -X POST 'http://localhost:8800/processing'
 
+# Scan the movie/series libraries and repoint broken symlinks to the placeholder
+curl -X POST 'http://localhost:8800/fix-loose-links'
+
 # Start / stop the Jellyfin → qBittorrent sync loop
 curl -X POST 'http://localhost:8801/sync?enabled=true'
 curl -X POST 'http://localhost:8801/sync?enabled=false'
@@ -209,7 +212,7 @@ When adding tests, prefer constructing `Scraper(..., for_test=True)` and feeding
 - **Database access** goes through the repositories in `src/database/db.py`. Add new query methods there rather than opening sessions inline.
 - **Async vs sync**: `sync_api` / `sync.py` / `bittorrentapi.py` are async; blocking calls (Jellyfin REST, DB) are dispatched via `loop.run_in_executor`. Preserve this pattern.
 - **Path semantics**: never compare/concat paths from the qBittorrent daemon and the container directly. Always go through the `downloaded_directory → downloaded_target_directory` translation as in `_update_symlinks`.
-- **Symlink invariant**: `original_file_path`, `main_media_files_local_path` and `symlink_path` are `;`-joined and **index-aligned**. If you change how one is built, change the others in lockstep.
+- **Symlink invariant**: `original_file_path`, `main_media_files_local_path` and `symlink_path` are `;`-joined and **index-aligned**. If you change how one is built, change the others in lockstep. Note that only `original_file_path`/`symlink_path` are index-aligned with each other — `main_media_files_local_path` holds the torrent's files in torrent order and is used by `_resolve_media_for_path` as a fallback when the symlink mapping is missing or stale (a played symlink that exists on disk but in no DB row).
 - **Logging**: use `self.logger = config.get_logger(__name__)`. The root logger writes to both `run.log` and stdout; do not reconfigure it.
 - **Selenium selectors** live in `src/ncore_scraper/selectors.py`. Update them there, not inline in `scraper.py`.
 - **Long-running endpoints** in `parsing_api.py` are intentionally blocking — they are designed to be fired once and observed via logs. Don't add background-task plumbing without a clear reason.
