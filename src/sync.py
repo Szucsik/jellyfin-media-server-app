@@ -866,8 +866,17 @@ class TorrentSyncService:
 
     async def _ensure_hungarian_subtitles(self, request: MediaDownloadRequest) -> None:
         """Fetch a Hungarian subtitle for a freshly downloaded, non-Hungarian item."""
-        if request.torrent.language == "HUN" or not request.jellyfin_item_id:
+        title = request.torrent.title
+
+        if request.torrent.language == "HUN":
+            self.logger.info("Subtitle step skipped for %s: media audio is Hungarian", title)
             return
+
+        if not request.jellyfin_item_id:
+            self.logger.warning("Subtitle step skipped for %s: no Jellyfin item id", title)
+            return
+
+        self.logger.info("Subtitle step started for %s (item %s)", title, request.jellyfin_item_id)
 
         loop = asyncio.get_running_loop()
         try:
@@ -875,10 +884,10 @@ class TorrentSyncService:
                 None, self.subtitles.download_for_item, request.jellyfin_item_id,
             )
         except Exception as exc:
-            self.logger.error("Subtitle download failed for %s: %s", request.torrent.title, exc)
+            self.logger.error("Subtitle step crashed for %s: %s", title, exc)
             return
 
-        self.logger.info("Hungarian subtitle for %s: %s", request.torrent.title, outcome)
+        self.logger.info("Subtitle step finished for %s: %s", title, outcome)
 
     def _is_symlink_pointing_to_real_file(
         self,

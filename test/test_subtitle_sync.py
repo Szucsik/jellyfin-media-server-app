@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from unittest.mock import MagicMock
 
 from jellyfin_api.jellyfin_api import JellyfinApi
@@ -143,3 +144,39 @@ def test_sync_skips_subtitles_for_hungarian_media(fake_config):
     asyncio.run(svc._ensure_hungarian_subtitles(_download_request("HUN")))
 
     svc.subtitles.download_for_item.assert_not_called()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Logging — the step must be visible in every scenario
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_sync_logs_skip_for_hungarian_media(fake_config, caplog):
+    svc = TorrentSyncService(fake_config)
+    svc.subtitles = MagicMock()
+
+    with caplog.at_level(logging.INFO):
+        asyncio.run(svc._ensure_hungarian_subtitles(_download_request("HUN")))
+
+    assert "Subtitle step skipped" in caplog.text
+
+
+def test_sync_logs_start_and_result_for_non_hungarian_media(fake_config, caplog):
+    svc = TorrentSyncService(fake_config)
+    svc.subtitles = MagicMock()
+    svc.subtitles.download_for_item.return_value = "downloaded"
+
+    with caplog.at_level(logging.INFO):
+        asyncio.run(svc._ensure_hungarian_subtitles(_download_request("ENG")))
+
+    assert "Subtitle step started" in caplog.text
+    assert "Subtitle step finished for T: downloaded" in caplog.text
+
+
+def test_service_logs_every_outcome(fake_config, caplog):
+    svc, _ = _service(fake_config, item=_item(), candidates=[])
+
+    with caplog.at_level(logging.INFO):
+        outcome = svc.download_for_item("jf-1")
+
+    assert outcome == "not_found"
+    assert "Subtitle step: no Hungarian subtitle found for item jf-1" in caplog.text
