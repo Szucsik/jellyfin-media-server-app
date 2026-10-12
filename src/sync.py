@@ -12,6 +12,7 @@ from jellyfin_api.bittorrentapi import BittorrentAPI, SPEED_UNLIMITED, SPEED_160
 from models.torrent import Torrent
 from models.local_file_information import LocalFileInformation
 from models.show_season import ShowSeason
+from subtitle_sync.service import SubtitleSyncService
 
 IMDB_PATH_PATTERN = re.compile(r"\[imdbid-(tt\d+)\]")
 IMDB_URL_PATTERN = re.compile(r"tt\d+")
@@ -66,6 +67,7 @@ class TorrentSyncService:
         self.config = config
         self.jellyfin = JellyfinApi(config)
         self.bittorrent = BittorrentAPI(config)
+        self.subtitles = SubtitleSyncService(config, jellyfin=self.jellyfin)
         self.logger = config.get_logger(__name__)
 
         # Set of (jellyfin_item_id, episode_file_index) tuples currently queued or downloading.
@@ -369,6 +371,7 @@ class TorrentSyncService:
             self.logger.info("Triggering Jellyfin to scan the new item")
             self._refresh_jellyfin_playback_scope(request)
             self.logger.info("Movie download complete: %s", request.torrent.title)
+            await self._ensure_hungarian_subtitles(request)
 
     # ── TV Show download (3-phase with priority) ──────────────────────────────
 
@@ -465,6 +468,7 @@ class TorrentSyncService:
                 )
             self.logger.info("Episode download complete, refreshing Jellyfin")
             self._refresh_jellyfin_playback_scope(request)
+            await self._ensure_hungarian_subtitles(request)
             return True
 
         return False
@@ -859,6 +863,22 @@ class TorrentSyncService:
                 request.jellyfin_series_id,
             ],
         )
+
+    async def _ensure_hungarian_subtitles(self, request: MediaDownloadRequest) -> None:
+        """Fetch a Hungarian subtitle for a freshly downloaded, non-Hungarian item."""
+        if request.torrent.language == "HUN" or not request.jellyfin_item_id:
+            return
+
+        loop = asyncio.get_running_loop()
+        try:
+            outcome = await loop.run_in_executor(
+                None, self.subtitles.download_for_item, request.jellyfin_item_id,
+            )
+        except Exception as exc:
+            self.logger.error("Subtitle download failed for %s: %s", request.torrent.title, exc)
+            return
+
+        self.logger.info("Hungarian subtitle for %s: %s", request.torrent.title, outcome)
 
     def _is_symlink_pointing_to_real_file(
         self,
