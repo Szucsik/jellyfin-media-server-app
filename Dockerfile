@@ -19,6 +19,6 @@ RUN uv sync --locked --no-dev --no-install-project
 
 COPY src/ ./
 
-EXPOSE 8800 8801
+EXPOSE 8800 8801 8802
 
 CMD ["/app/.venv/bin/python", "run.py"]
